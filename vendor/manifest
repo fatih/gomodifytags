@@ -1,0 +1,21 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/fatih/camelcase",
+			"repository": "https://github.com/fatih/camelcase",
+			"vcs": "git",
+			"revision": "f6a740d52f961c60348ebb109adde9f4635d7540",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/fatih/structtag",
+			"repository": "https://github.com/fatih/structtag",
+			"vcs": "git",
+			"revision": "da3d9ab5b78fdc25d3a7614853b085200bd10da9",
+			"branch": "master",
+			"notests": true
+		}
+	]
+}

@@ -1,0 +1,634 @@
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"go/ast"
+	"go/format"
+	"go/parser"
+	"go/token"
+	"io/ioutil"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/fatih/camelcase"
+	"github.com/fatih/structtag"
+)
+
+// structType contains a structType node and it's name. It's a convenient
+// helper type, because *ast.StructType doesn't contain the name of the struct
+type structType struct {
+	name string
+	node *ast.StructType
+}
+
+// output is used usually for tools
+type output struct {
+	Start int      `json:"start"`
+	End   int      `json:"end"`
+	Lines []string `json:"lines"`
+}
+
+// config defines how tags should be modified
+type config struct {
+	file   string
+	output string
+	write  bool
+
+	offset     int
+	structName string
+	line       string
+	start, end int
+
+	fset *token.FileSet
+
+	remove        []string
+	removeOptions []string
+
+	add        []string
+	addOptions []string
+
+	transform   string
+	sort        bool
+	clear       bool
+	clearOption bool
+}
+
+func main() {
+	if err := realMain(); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+}
+
+func realMain() error {
+	var (
+		// file flags
+		flagFile  = flag.String("file", "", "Filename to be parsed")
+		flagWrite = flag.Bool("w", false,
+			"Write result to (source) file instead of stdout")
+		flagOutput = flag.String("format", "source", "Output format."+
+			"By default it's the whole file. Options: [source, json]")
+
+		// processing modes
+		flagOffset = flag.Int("offset", 0,
+			"Byte offset of the cursor position inside a struct."+
+				"Can be anwhere from the comment until closing bracket")
+		flagLine = flag.String("line", "",
+			"Line number of the field or a range of line. i.e: 4 or 4,8")
+		flagStruct = flag.String("struct", "", "Struct name to be processed")
+
+		// tag flags
+		flagRemoveTags = flag.String("remove-tags", "",
+			"Remove tags for the comma separated list of keys")
+		flagClearTags = flag.Bool("clear-tags", false,
+			"Clear all tags")
+		flagAddTags = flag.String("add-tags", "",
+			"Adds tags for the comma separated list of keys."+
+				"Keys can contain a static value, i,e: json:foo")
+		flagTransform = flag.String("transform", "snakecase",
+			"Transform adds a transform rule when adding tags."+
+				" Current options: [snakecase, camelcase]")
+		flagSort = flag.Bool("sort", false,
+			"Sort sorts the tags in increasing order according to the key name")
+
+		// option flags
+		flagRemoveOptions = flag.String("remove-options", "",
+			"Remove the comma separated list of options from the given keys, "+
+				"i.e: json=omitempty,hcl=squash")
+		flagClearOptions = flag.Bool("clear-options", false,
+			"Clear all tag options")
+		flagAddOptions = flag.String("add-options", "",
+			"Add the options per given key. i.e: json=omitempty,hcl=squash")
+	)
+
+	// don't output full help information if something goes wrong
+	flag.Usage = func() {}
+	flag.Parse()
+
+	if flag.NFlag() == 0 {
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+		return nil
+	}
+
+	cfg := &config{
+		file:        *flagFile,
+		line:        *flagLine,
+		structName:  *flagStruct,
+		offset:      *flagOffset,
+		output:      *flagOutput,
+		write:       *flagWrite,
+		clear:       *flagClearTags,
+		clearOption: *flagClearOptions,
+		transform:   *flagTransform,
+		sort:        *flagSort,
+	}
+
+	if *flagAddTags != "" {
+		cfg.add = strings.Split(*flagAddTags, ",")
+	}
+
+	if *flagAddOptions != "" {
+		cfg.addOptions = strings.Split(*flagAddOptions, ",")
+	}
+
+	if *flagRemoveTags != "" {
+		cfg.remove = strings.Split(*flagRemoveTags, ",")
+	}
+
+	if *flagRemoveOptions != "" {
+		cfg.removeOptions = strings.Split(*flagRemoveOptions, ",")
+	}
+
+	err := cfg.validate()
+	if err != nil {
+		return err
+	}
+
+	node, err := cfg.rewrite()
+	if err != nil {
+		return err
+	}
+
+	out, err := cfg.format(node)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(os.Stdout, out)
+	return nil
+}
+
+func (c *config) rewrite() (ast.Node, error) {
+	c.fset = token.NewFileSet()
+	node, err := parser.ParseFile(c.fset, c.file, nil, parser.ParseComments)
+	if err != nil {
+		return nil, err
+	}
+
+	if c.line != "" {
+		return c.lineSelection(node)
+	} else if c.offset != 0 {
+		return c.offsetSelection(node)
+	} else if c.structName != "" {
+		return c.structSelection(node)
+	}
+
+	return nil, errors.New("-line, -offset or -struct is not passed")
+}
+
+func (c *config) process(fieldName, tagVal string) (string, error) {
+	var tag string
+	if tagVal != "" {
+		var err error
+		tag, err = strconv.Unquote(tagVal)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	tags, err := structtag.Parse(tag)
+	if err != nil {
+		return "", err
+	}
+
+	tags = c.removeTags(tags)
+	tags, err = c.removeTagOptions(tags)
+	if err != nil {
+		return "", err
+	}
+
+	tags = c.clearTags(tags)
+	tags = c.clearOptions(tags)
+
+	tags, err = c.addTags(fieldName, tags)
+	if err != nil {
+		return "", err
+	}
+
+	tags, err = c.addTagOptions(tags)
+	if err != nil {
+		return "", err
+	}
+
+	if c.sort {
+		sort.Sort(tags)
+	}
+
+	res := tags.String()
+	if res != "" {
+		res = quote(tags.String())
+	}
+
+	return res, nil
+}
+
+func (c *config) removeTags(tags *structtag.Tags) *structtag.Tags {
+	if c.remove == nil || len(c.remove) == 0 {
+		return tags
+	}
+
+	tags.Delete(c.remove...)
+	return tags
+}
+
+func (c *config) clearTags(tags *structtag.Tags) *structtag.Tags {
+	if !c.clear {
+		return tags
+	}
+
+	tags.Delete(tags.Keys()...)
+	return tags
+}
+
+func (c *config) clearOptions(tags *structtag.Tags) *structtag.Tags {
+	if !c.clearOption {
+		return tags
+	}
+
+	for _, t := range tags.Tags() {
+		t.Options = nil
+	}
+
+	return tags
+}
+
+func (c *config) removeTagOptions(tags *structtag.Tags) (*structtag.Tags, error) {
+	if c.removeOptions == nil || len(c.removeOptions) == 0 {
+		return tags, nil
+	}
+
+	for _, val := range c.removeOptions {
+		// syntax key=option
+		splitted := strings.Split(val, "=")
+		if len(splitted) != 2 {
+			return nil, errors.New("wrong syntax to remove an option. i.e key=option")
+		}
+
+		key := splitted[0]
+		option := splitted[1]
+
+		tags.DeleteOptions(key, option)
+	}
+
+	return tags, nil
+}
+
+func (c *config) addTagOptions(tags *structtag.Tags) (*structtag.Tags, error) {
+	if c.addOptions == nil || len(c.addOptions) == 0 {
+		return tags, nil
+	}
+
+	for _, val := range c.addOptions {
+		// syntax key=option
+		splitted := strings.Split(val, "=")
+		if len(splitted) != 2 {
+			return nil, errors.New("wrong syntax to add an option. i.e key=option")
+		}
+
+		key := splitted[0]
+		option := splitted[1]
+
+		tags.AddOptions(key, option)
+	}
+
+	return tags, nil
+}
+
+func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tags, error) {
+	if c.add == nil || len(c.add) == 0 {
+		return tags, nil
+	}
+
+	splitted := camelcase.Split(fieldName)
+	name := ""
+
+	unknown := false
+	switch c.transform {
+	case "snakecase":
+		var lowerSplitted []string
+		for _, s := range splitted {
+			lowerSplitted = append(lowerSplitted, strings.ToLower(s))
+		}
+
+		name = strings.Join(lowerSplitted, "_")
+	case "camelcase":
+		var titled []string
+		for _, s := range splitted {
+			titled = append(titled, strings.Title(s))
+		}
+
+		titled[0] = strings.ToLower(titled[0])
+
+		name = strings.Join(titled, "")
+	default:
+		unknown = true
+	}
+
+	for _, key := range c.add {
+		splitted = strings.Split(key, ":")
+		if len(splitted) == 2 {
+			key = splitted[0]
+			name = splitted[1]
+		} else if unknown {
+			// the user didn't pass any value but want to use an unknown
+			// transform. We don't return above in the default as the user
+			// might pass a value
+			return nil, fmt.Errorf("unknown transform option %q", c.transform)
+		}
+
+		tag, err := tags.Get(key)
+		if err != nil {
+			// tag doesn't exist, create a new one
+			tag = &structtag.Tag{
+				Key:  key,
+				Name: name,
+			}
+		} else {
+			// TODO(arslan): add -override flag if needed
+			// tag.Name = name
+		}
+
+		if err := tags.Set(tag); err != nil {
+			return nil, err
+		}
+	}
+
+	return tags, nil
+}
+
+// collectStructs collects and maps structType nodes to their positions
+func collectStructs(node ast.Node) map[token.Pos]*structType {
+	structs := make(map[token.Pos]*structType, 0)
+	collectStructs := func(n ast.Node) bool {
+		t, ok := n.(*ast.TypeSpec)
+		if !ok {
+			return true
+		}
+
+		if t.Type == nil {
+			return true
+		}
+
+		structName := t.Name.Name
+
+		x, ok := t.Type.(*ast.StructType)
+		if !ok {
+			return true
+		}
+
+		structs[x.Pos()] = &structType{
+			name: structName,
+			node: x,
+		}
+		return true
+	}
+	ast.Inspect(node, collectStructs)
+	return structs
+}
+
+func (c *config) format(file ast.Node) (string, error) {
+	switch c.output {
+	case "source":
+		var buf bytes.Buffer
+		err := format.Node(&buf, c.fset, file)
+		if err != nil {
+			return "", err
+		}
+
+		if c.write {
+			err = ioutil.WriteFile(c.file, buf.Bytes(), 0)
+			if err != nil {
+				return "", err
+			}
+		}
+
+		return buf.String(), nil
+	case "json":
+		var buf bytes.Buffer
+
+		var start token.Position
+		var end token.Position
+
+		// find position of our struct
+		findStruct := func(n ast.Node) bool {
+			x, ok := n.(*ast.StructType)
+			if !ok {
+				return true
+			}
+
+			structBegin := c.fset.Position(x.Pos()).Line
+			structEnd := c.fset.Position(x.End()).Line
+
+			if !(structBegin <= c.start && c.end <= structEnd) {
+				return true
+			}
+
+			start = c.fset.Position(x.Pos())
+			end = c.fset.Position(x.End())
+			return true
+		}
+
+		ast.Inspect(file, findStruct)
+
+		// NOTE(arslan): print first the whole file and then cut out our struct
+		// declaration. The reason we don't directly print the struct is that
+		// the printer is not capable of printing loosy comments, comments that
+		// are not part of any field inside a struct. Those are pare of
+		// *ast.File and only printed inside a struct if we print the whole
+		// file. This approach is the sanest and simplest way to get a struct
+		// printed back. Let me know if you read this and you think there is a
+		// simpler way of doing it.
+		err := format.Node(&buf, c.fset, file)
+		if err != nil {
+			return "", err
+		}
+
+		var lines []string
+		scanner := bufio.NewScanner(bytes.NewBufferString(buf.String()))
+		for scanner.Scan() {
+			lines = append(lines, scanner.Text())
+		}
+
+		out := &output{
+			Start: start.Line + 1,
+			End:   end.Line - 1,
+			Lines: lines[start.Line:end.Line],
+		}
+
+		o, err := json.Marshal(out)
+		if err != nil {
+			return "", err
+		}
+
+		return string(o), nil
+	default:
+		return "", fmt.Errorf("unknown output mode: %s", c.output)
+	}
+}
+
+func (c *config) lineSelection(file ast.Node) (ast.Node, error) {
+	var err error
+	splitted := strings.Split(c.line, ",")
+	c.start, err = strconv.Atoi(splitted[0])
+	if err != nil {
+		return nil, err
+	}
+
+	c.end = c.start
+	if len(splitted) == 2 {
+		c.end, err = strconv.Atoi(splitted[1])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if c.start > c.end {
+		return nil, errors.New("wrong range. start line cannot be larger than end line")
+	}
+
+	structs := collectStructs(file)
+
+	var encStruct *ast.StructType
+	for _, st := range structs {
+		structBegin := c.fset.Position(st.node.Pos()).Line
+		structEnd := c.fset.Position(st.node.End()).Line
+
+		if structBegin <= c.start && c.end <= structEnd {
+			encStruct = st.node
+		}
+	}
+
+	if encStruct == nil {
+		return nil, errors.New("selection is not inside a struct")
+	}
+
+	return c.rewriteFields(file)
+}
+
+func (c *config) structSelection(file ast.Node) (ast.Node, error) {
+	structs := collectStructs(file)
+
+	var encStruct *ast.StructType
+	for _, st := range structs {
+		if st.name == c.structName {
+			encStruct = st.node
+		}
+	}
+
+	if encStruct == nil {
+		return nil, errors.New("struct name does not exist")
+	}
+
+	// struct selects all lines inside a struct
+	c.start = c.fset.Position(encStruct.Pos()).Line
+	c.end = c.fset.Position(encStruct.End()).Line
+
+	return c.rewriteFields(file)
+}
+
+func (c *config) offsetSelection(file ast.Node) (ast.Node, error) {
+	structs := collectStructs(file)
+
+	var encStruct *ast.StructType
+	for _, st := range structs {
+		structBegin := c.fset.Position(st.node.Pos()).Offset
+		structEnd := c.fset.Position(st.node.End()).Offset
+
+		if structBegin <= c.offset && c.offset <= structEnd {
+			encStruct = st.node
+			break
+		}
+	}
+
+	if encStruct == nil {
+		return nil, errors.New("offset is not inside a struct")
+	}
+
+	// offset selects all functions
+	c.start = c.fset.Position(encStruct.Pos()).Line
+	c.end = c.fset.Position(encStruct.End()).Line
+
+	return c.rewriteFields(file)
+}
+
+func (c *config) rewriteFields(node ast.Node) (ast.Node, error) {
+	var rewriteErr error
+	rewriteFunc := func(n ast.Node) bool {
+		x, ok := n.(*ast.StructType)
+		if !ok {
+			return true
+		}
+
+		for _, f := range x.Fields.List {
+			line := c.fset.Position(f.Pos()).Line
+
+			if !(c.start <= line && line <= c.end) {
+				continue
+			}
+
+			if f.Tag == nil {
+				f.Tag = &ast.BasicLit{}
+			}
+
+			fieldName := ""
+			if f.Names != nil && len(f.Names) != 0 {
+				fieldName = f.Names[0].Name
+			}
+
+			res, err := c.process(fieldName, f.Tag.Value)
+			if err != nil {
+				rewriteErr = err
+				return true
+			}
+
+			f.Tag.Value = res
+		}
+
+		return true
+	}
+
+	ast.Inspect(node, rewriteFunc)
+	return node, rewriteErr
+}
+
+// validate validates whether the config is valid or not
+func (c *config) validate() error {
+	if c.file == "" {
+		return errors.New("no file is passed")
+	}
+
+	if c.line == "" && c.offset == 0 && c.structName == "" {
+		return errors.New("-line, -offset or -struct is not passed")
+	}
+
+	if c.line != "" && c.offset != 0 ||
+		c.line != "" && c.structName != "" ||
+		c.offset != 0 && c.structName != "" {
+		return errors.New("-line, -offset or -struct cannot be used together. pick one")
+	}
+
+	if (c.add == nil || len(c.add) == 0) &&
+		(c.addOptions == nil || len(c.addOptions) == 0) &&
+		!c.clear &&
+		!c.clearOption &&
+		(c.removeOptions == nil || len(c.removeOptions) == 0) &&
+		(c.remove == nil || len(c.remove) == 0) {
+		return errors.New("one of " +
+			"[-add-tags, -add-options, -remove-tags, -remove-options, -clear-tags, -clear-options]" +
+			" should be defined")
+	}
+
+	return nil
+}
+
+func quote(tag string) string {
+	return "`" + tag + "`"
+}
