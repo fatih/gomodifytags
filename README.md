@@ -13,6 +13,10 @@ terminal. Read the usage section below for more information.
 go get github.com/fatih/gomodifytags
 ```
 
+# Supported editors
+
+* [vim-go](https://github.com/fatih/vim-go) with `:GoAddTags` and `:GoRemoveTags`
+
 # Usage
 
 `gomodifytags` has multiple ways to modify a tag. Let's start with an example package:
