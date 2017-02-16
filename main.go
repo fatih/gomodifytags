@@ -11,6 +11,7 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"io"
 	"io/ioutil"
 	"os"
 	"sort"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/fatih/camelcase"
 	"github.com/fatih/structtag"
+	"golang.org/x/tools/go/buildutil"
 )
 
 // structType contains a structType node and it's name. It's a convenient
@@ -37,9 +39,10 @@ type output struct {
 
 // config defines how tags should be modified
 type config struct {
-	file   string
-	output string
-	write  bool
+	file     string
+	output   string
+	write    bool
+	modified io.Reader
 
 	offset     int
 	structName string
@@ -75,6 +78,7 @@ func realMain() error {
 			"Write result to (source) file instead of stdout")
 		flagOutput = flag.String("format", "source", "Output format."+
 			"By default it's the whole file. Options: [source, json]")
+		flagModified = flag.Bool("modified", false, "read an archive of modified files from standard input")
 
 		// processing modes
 		flagOffset = flag.Int("offset", 0,
@@ -131,6 +135,10 @@ func realMain() error {
 		sort:        *flagSort,
 	}
 
+	if *flagModified {
+		cfg.modified = os.Stdin
+	}
+
 	if *flagAddTags != "" {
 		cfg.add = strings.Split(*flagAddTags, ",")
 	}
@@ -168,7 +176,17 @@ func realMain() error {
 
 func (c *config) rewrite() (ast.Node, error) {
 	c.fset = token.NewFileSet()
-	node, err := parser.ParseFile(c.fset, c.file, nil, parser.ParseComments)
+	var contents interface{}
+	if c.modified != nil {
+		archive, err := buildutil.ParseOverlayArchive(c.modified)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse -modified archive: %v", err)
+		}
+		if fc, ok := archive[c.file]; ok {
+			contents = fc
+		}
+	}
+	node, err := parser.ParseFile(c.fset, c.file, contents, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
