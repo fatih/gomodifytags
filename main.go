@@ -182,9 +182,11 @@ func (c *config) rewrite() (ast.Node, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse -modified archive: %v", err)
 		}
-		if fc, ok := archive[c.file]; ok {
-			contents = fc
+		fc, ok := archive[c.file]
+		if !ok {
+			return nil, fmt.Errorf("couldn't find %s in archive", c.file)
 		}
+		contents = fc
 	}
 	node, err := parser.ParseFile(c.fset, c.file, contents, parser.ParseComments)
 	if err != nil {

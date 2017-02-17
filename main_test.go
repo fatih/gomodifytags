@@ -323,3 +323,26 @@ type foo struct {
 		t.Errorf("got:\n====\n%s\nwant:\n====\n%s\n", got, want)
 	}
 }
+
+func TestModifiedFileMissing(t *testing.T) {
+	cfg := &config{
+		add:        []string{"json"},
+		output:     "source",
+		structName: "foo",
+		transform:  "snakecase",
+		file:       "struct_add_modified",
+		modified: strings.NewReader(`file_that_doesnt_exist
+55
+package foo
+
+type foo struct {
+	bar string
+	t   bool
+}
+`),
+	}
+	_, err := cfg.rewrite()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
