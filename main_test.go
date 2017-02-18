@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -205,7 +206,12 @@ func TestRewrite(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			from, err := ioutil.ReadFile(ts.cfg.file)
+			var from []byte
+			if ts.cfg.modified != nil {
+				from, err = ioutil.ReadAll(ts.cfg.modified)
+			} else {
+				from, err = ioutil.ReadFile(ts.cfg.file)
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -276,5 +282,67 @@ func TestJSON(t *testing.T) {
 					ts.file, got, want, from)
 			}
 		})
+	}
+}
+
+func TestModifiedRewrite(t *testing.T) {
+	cfg := &config{
+		add:        []string{"json"},
+		output:     "source",
+		structName: "foo",
+		transform:  "snakecase",
+		file:       "struct_add_modified",
+		modified: strings.NewReader(`struct_add_modified
+55
+package foo
+
+type foo struct {
+	bar string
+	t   bool
+}
+`),
+	}
+	node, err := cfg.rewrite()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := cfg.format(node)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	golden := filepath.Join(fixtureDir, "struct_add.golden")
+	want, err := ioutil.ReadFile(golden)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// compare
+	if !bytes.Equal([]byte(got), want) {
+		t.Errorf("got:\n====\n%s\nwant:\n====\n%s\n", got, want)
+	}
+}
+
+func TestModifiedFileMissing(t *testing.T) {
+	cfg := &config{
+		add:        []string{"json"},
+		output:     "source",
+		structName: "foo",
+		transform:  "snakecase",
+		file:       "struct_add_modified",
+		modified: strings.NewReader(`file_that_doesnt_exist
+55
+package foo
+
+type foo struct {
+	bar string
+	t   bool
+}
+`),
+	}
+	_, err := cfg.rewrite()
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }

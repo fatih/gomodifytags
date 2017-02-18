@@ -490,3 +490,14 @@ for line_number in range(start, end)
   let index += 1
 endfor
 ```
+
+### Unsaved files
+
+Editors can supply `gomodifytags` with the contents of unsaved buffers by
+using the `-modified` flag and writing an archive to stdin.  
+Files in the archive will be preferred over those on disk.
+
+Each archive entry consists of:
+ - the file name, followed by a newline
+ - the (decimal) file size, followed by a newline
+ - the contents of the file
