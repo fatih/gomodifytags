@@ -16,6 +16,15 @@
 			"revision": "da3d9ab5b78fdc25d3a7614853b085200bd10da9",
 			"branch": "master",
 			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/tools/go/buildutil",
+			"repository": "https://go.googlesource.com/tools",
+			"vcs": "git",
+			"revision": "219e654bb7266d3b73c4610ed24c33d12560826a",
+			"branch": "master",
+			"path": "/go/buildutil",
+			"notests": true
 		}
 	]
 }
