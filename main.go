@@ -480,7 +480,7 @@ func (c *config) format(file ast.Node) (string, error) {
 		out := &output{
 			Start: start.Line + 1,
 			End:   end.Line - 1,
-			Lines: lines[start.Line:end.Line],
+			Lines: lines[start.Line : end.Line-1],
 		}
 
 		o, err := json.Marshal(out)
