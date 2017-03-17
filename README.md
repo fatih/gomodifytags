@@ -420,7 +420,7 @@ Editors can use the tool by calling the tool and then either replace the buffer
 with the stdout or use the `-w` flag.
 
 Also `-line` and `-offset` flags should be preferred to be used with editors.
-An editor can select a range of files and then pass it to `-line` flag. The
+An editor can select a range of lines and then pass it to `-line` flag. The
 editor also can pass the offset under the cursor if it's inside the struct to
 `-offset`
 
