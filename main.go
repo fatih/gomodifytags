@@ -461,7 +461,7 @@ func (c *config) format(file ast.Node) (string, error) {
 		// NOTE(arslan): print first the whole file and then cut out our struct
 		// declaration. The reason we don't directly print the struct is that
 		// the printer is not capable of printing loosy comments, comments that
-		// are not part of any field inside a struct. Those are pare of
+		// are not part of any field inside a struct. Those are part of
 		// *ast.File and only printed inside a struct if we print the whole
 		// file. This approach is the sanest and simplest way to get a struct
 		// printed back. Let me know if you read this and you think there is a

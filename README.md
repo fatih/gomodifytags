@@ -16,6 +16,7 @@ go get github.com/fatih/gomodifytags
 # Supported editors
 
 * [vim-go](https://github.com/fatih/vim-go) with `:GoAddTags` and `:GoRemoveTags`
+* [go-plus (atom)](https://github.com/joefitzgerald/go-plus) with commands `golang:add-tags` and `golang:remove-tags`
 
 # Usage
 
@@ -463,7 +464,6 @@ $ gomodifytags -file demo.go -struct Server -add-tags xml -format json
     "\t\tUsername string `xml:\"username\"`",
     "\t\tPassword string `xml:\"password\"`",
     "\t} `xml:\"credentials\"`",
-    "}"
   ]
 }
 ```
