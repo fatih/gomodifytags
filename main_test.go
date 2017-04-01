@@ -72,6 +72,42 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "line_add_outside",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "2,8",
+				transform: "snakecase",
+			},
+		},
+		{
+			file: "line_add_outside_partial_start",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "2,5",
+				transform: "snakecase",
+			},
+		},
+		{
+			file: "line_add_outside_partial_end",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "5,8",
+				transform: "snakecase",
+			},
+		},
+		{
+			file: "line_add_intersect_partial",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "5,11",
+				transform: "snakecase",
+			},
+		},
+		{
 			file: "line_add_comment",
 			cfg: &config{
 				add:       []string{"json"},

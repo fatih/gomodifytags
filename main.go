@@ -514,22 +514,6 @@ func (c *config) lineSelection(file ast.Node) (ast.Node, error) {
 		return nil, errors.New("wrong range. start line cannot be larger than end line")
 	}
 
-	structs := collectStructs(file)
-
-	var encStruct *ast.StructType
-	for _, st := range structs {
-		structBegin := c.fset.Position(st.node.Pos()).Line
-		structEnd := c.fset.Position(st.node.End()).Line
-
-		if structBegin <= c.start && c.end <= structEnd {
-			encStruct = st.node
-		}
-	}
-
-	if encStruct == nil {
-		return nil, errors.New("selection is not inside a struct")
-	}
-
 	return c.rewriteFields(file)
 }
 
