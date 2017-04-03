@@ -72,6 +72,25 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "line_add_override",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,5",
+				transform: "snakecase",
+				override:  true,
+			},
+		},
+		{
+			file: "line_add_no_override",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,5",
+				transform: "snakecase",
+			},
+		},
+		{
 			file: "line_add_outside",
 			cfg: &config{
 				add:       []string{"json"},
