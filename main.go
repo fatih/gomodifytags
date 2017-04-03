@@ -56,6 +56,7 @@ type config struct {
 
 	add        []string
 	addOptions []string
+	override   bool
 
 	transform   string
 	sort        bool
@@ -96,6 +97,7 @@ func realMain() error {
 		flagAddTags = flag.String("add-tags", "",
 			"Adds tags for the comma separated list of keys."+
 				"Keys can contain a static value, i,e: json:foo")
+		flagOverride  = flag.Bool("override", false, "Override current tags when adding tags")
 		flagTransform = flag.String("transform", "snakecase",
 			"Transform adds a transform rule when adding tags."+
 				" Current options: [snakecase, camelcase]")
@@ -133,6 +135,7 @@ func realMain() error {
 		clearOption: *flagClearOptions,
 		transform:   *flagTransform,
 		sort:        *flagSort,
+		override:    *flagOverride,
 	}
 
 	if *flagModified {
@@ -371,9 +374,8 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 				Key:  key,
 				Name: name,
 			}
-		} else {
-			// TODO(arslan): add -override flag if needed
-			// tag.Name = name
+		} else if c.override {
+			tag.Name = name
 		}
 
 		if err := tags.Set(tag); err != nil {
