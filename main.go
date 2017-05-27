@@ -585,8 +585,18 @@ func (c *config) rewriteFields(node ast.Node) (ast.Node, error) {
 			}
 
 			fieldName := ""
-			if f.Names != nil && len(f.Names) != 0 {
+			if len(f.Names) != 0 {
 				fieldName = f.Names[0].Name
+			}
+
+			// anonymous field
+			if f.Names == nil {
+				ident, ok := f.Type.(*ast.Ident)
+				if !ok {
+					continue
+				}
+
+				fieldName = ident.Name
 			}
 
 			res, err := c.process(fieldName, f.Tag.Value)
