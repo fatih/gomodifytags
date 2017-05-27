@@ -204,6 +204,15 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "line_camelcase_add_embedded",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,6",
+				transform: "camelcase",
+			},
+		},
+		{
 			file: "line_value_add",
 			cfg: &config{
 				add:    []string{"json:foo"},
