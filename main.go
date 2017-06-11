@@ -191,6 +191,7 @@ func (c *config) rewrite() (ast.Node, error) {
 		}
 		contents = fc
 	}
+
 	node, err := parser.ParseFile(c.fset, c.file, contents, parser.ParseComments)
 	if err != nil {
 		return nil, err
@@ -434,40 +435,16 @@ func (c *config) format(file ast.Node) (string, error) {
 
 		return buf.String(), nil
 	case "json":
+		// NOTE(arslan): print first the whole file and then cut out our
+		// selection. The reason we don't directly print the struct is that the
+		// printer is not capable of printing loosy comments, comments that are
+		// not part of any field inside a struct. Those are part of *ast.File
+		// and only printed inside a struct if we print the whole file. This
+		// approach is the sanest and simplest way to get a struct printed
+		// back. Second, our cursor might intersect two different structs with
+		// other declarations in between them. Printing the file and cutting
+		// the selection is the easier and simpler to do.
 		var buf bytes.Buffer
-
-		var start token.Position
-		var end token.Position
-
-		// find position of our struct
-		findStruct := func(n ast.Node) bool {
-			x, ok := n.(*ast.StructType)
-			if !ok {
-				return true
-			}
-
-			structBegin := c.fset.Position(x.Pos()).Line
-			structEnd := c.fset.Position(x.End()).Line
-
-			if !(structBegin <= c.start && c.end <= structEnd) {
-				return true
-			}
-
-			start = c.fset.Position(x.Pos())
-			end = c.fset.Position(x.End())
-			return true
-		}
-
-		ast.Inspect(file, findStruct)
-
-		// NOTE(arslan): print first the whole file and then cut out our struct
-		// declaration. The reason we don't directly print the struct is that
-		// the printer is not capable of printing loosy comments, comments that
-		// are not part of any field inside a struct. Those are part of
-		// *ast.File and only printed inside a struct if we print the whole
-		// file. This approach is the sanest and simplest way to get a struct
-		// printed back. Let me know if you read this and you think there is a
-		// simpler way of doing it.
 		err := format.Node(&buf, c.fset, file)
 		if err != nil {
 			return "", err
@@ -479,13 +456,17 @@ func (c *config) format(file ast.Node) (string, error) {
 			lines = append(lines, scanner.Text())
 		}
 
-		out := &output{
-			Start: start.Line + 1,
-			End:   end.Line - 1,
-			Lines: lines[start.Line : end.Line-1],
+		if c.start > len(lines) {
+			return "", errors.New("line selection is invalid")
 		}
 
-		o, err := json.Marshal(out)
+		out := &output{
+			Start: c.start,
+			End:   c.end,
+			Lines: lines[c.start-1 : c.end],
+		}
+
+		o, err := json.MarshalIndent(out, "", "  ")
 		if err != nil {
 			return "", err
 		}
@@ -558,7 +539,7 @@ func (c *config) offsetSelection(file ast.Node) (ast.Node, error) {
 		return nil, errors.New("offset is not inside a struct")
 	}
 
-	// offset selects all functions
+	// offset selects all fields
 	c.start = c.fset.Position(encStruct.Pos()).Line
 	c.end = c.fset.Position(encStruct.End()).Line
 

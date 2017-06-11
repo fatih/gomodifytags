@@ -1,7 +1,0 @@
-package foo
-
-type foo struct {
-	bar       string
-	MyExample bool
-	MyAnother []string
-}

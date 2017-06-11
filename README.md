@@ -454,9 +454,10 @@ $ gomodifytags -file demo.go -struct Server -add-tags xml -format json
 ```
 ```json
 {
-  "start": 4,
-  "end": 11,
+  "start": 3,
+  "end": 12,
   "lines": [
+    "type Server struct {",
     "\tName        string `xml:\"name\"`",
     "\tPort        int    `xml:\"port\"`",
     "\tEnableLogs  bool   `xml:\"enable_logs\"`",
@@ -465,6 +466,7 @@ $ gomodifytags -file demo.go -struct Server -add-tags xml -format json
     "\t\tUsername string `xml:\"username\"`",
     "\t\tPassword string `xml:\"password\"`",
     "\t} `xml:\"credentials\"`",
+    "}"
   ]
 }
 ```
