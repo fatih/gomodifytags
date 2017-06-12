@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -293,30 +295,63 @@ func TestJSON(t *testing.T) {
 	test := []struct {
 		cfg  *config
 		file string
+		err  error
 	}{
 		{
-			file: "line_camelcase_add_json",
+			file: "json_single",
 			cfg: &config{
-				add:       []string{"json"},
-				output:    "json",
-				line:      "4,5",
-				transform: "camelcase",
+				add:  []string{"json"},
+				line: "5",
 			},
+		},
+		{
+			file: "json_full",
+			cfg: &config{
+				add:  []string{"json"},
+				line: "4,6",
+			},
+		},
+		{
+			file: "json_intersection",
+			cfg: &config{
+				add:  []string{"json"},
+				line: "5,16",
+			},
+		},
+		{
+			file: "json_single",
+			cfg: &config{
+				add:  []string{"json"},
+				line: "30,32", // invalid selection
+			},
+			err: errors.New("line selection is invalid"),
 		},
 	}
 
 	for _, ts := range test {
 		t.Run(ts.file, func(t *testing.T) {
 			ts.cfg.file = filepath.Join(fixtureDir, fmt.Sprintf("%s.input", ts.file))
+			// these are explicit and shouldn't be changed for this particular
+			// main test
+			ts.cfg.output = "json"
+			ts.cfg.transform = "camelcase"
+
 			node, err := ts.cfg.rewrite()
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			out, err := ts.cfg.format(node)
-			if err != nil {
-				t.Fatal(err)
+			if !reflect.DeepEqual(err, ts.err) {
+				t.Logf("want: %v", ts.err)
+				t.Logf("got: %v", err)
+				t.Fatalf("unexpected error")
 			}
+
+			if ts.err != nil {
+				return
+			}
+
 			got := []byte(out)
 
 			// update golden file if necessary
