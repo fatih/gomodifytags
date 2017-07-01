@@ -163,12 +163,17 @@ func realMain() error {
 		return err
 	}
 
-	node, err := cfg.rewrite()
+	node, err := cfg.parse()
 	if err != nil {
 		return err
 	}
 
-	out, err := cfg.format(node)
+	rewrittenNode, err := cfg.rewrite(node)
+	if err != nil {
+		return err
+	}
+
+	out, err := cfg.format(rewrittenNode)
 	if err != nil {
 		return err
 	}
@@ -177,7 +182,7 @@ func realMain() error {
 	return nil
 }
 
-func (c *config) rewrite() (ast.Node, error) {
+func (c *config) parse() (ast.Node, error) {
 	c.fset = token.NewFileSet()
 	var contents interface{}
 	if c.modified != nil {
@@ -192,11 +197,10 @@ func (c *config) rewrite() (ast.Node, error) {
 		contents = fc
 	}
 
-	node, err := parser.ParseFile(c.fset, c.file, contents, parser.ParseComments)
-	if err != nil {
-		return nil, err
-	}
+	return parser.ParseFile(c.fset, c.file, contents, parser.ParseComments)
+}
 
+func (c *config) rewrite(node ast.Node) (ast.Node, error) {
 	if c.line != "" {
 		return c.lineSelection(node)
 	} else if c.offset != 0 {

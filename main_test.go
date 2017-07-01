@@ -245,7 +245,13 @@ func TestRewrite(t *testing.T) {
 	for _, ts := range test {
 		t.Run(ts.file, func(t *testing.T) {
 			ts.cfg.file = filepath.Join(fixtureDir, fmt.Sprintf("%s.input", ts.file))
-			node, err := ts.cfg.rewrite()
+
+			node, err := ts.cfg.parse()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			node, err = ts.cfg.rewrite(node)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -336,12 +342,17 @@ func TestJSON(t *testing.T) {
 			ts.cfg.output = "json"
 			ts.cfg.transform = "camelcase"
 
-			node, err := ts.cfg.rewrite()
+			node, err := ts.cfg.parse()
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			out, err := ts.cfg.format(node)
+			rewrittenNode, err := ts.cfg.rewrite(node)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			out, err := ts.cfg.format(rewrittenNode)
 			if !reflect.DeepEqual(err, ts.err) {
 				t.Logf("want: %v", ts.err)
 				t.Logf("got: %v", err)
@@ -401,12 +412,18 @@ type foo struct {
 }
 `),
 	}
-	node, err := cfg.rewrite()
+
+	node, err := cfg.parse()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	got, err := cfg.format(node)
+	rewrittenNode, err := cfg.rewrite(node)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := cfg.format(rewrittenNode)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -440,7 +457,8 @@ type foo struct {
 }
 `),
 	}
-	_, err := cfg.rewrite()
+
+	_, err := cfg.parse()
 	if err == nil {
 		t.Fatal("expected error")
 	}
