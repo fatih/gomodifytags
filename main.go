@@ -168,7 +168,12 @@ func realMain() error {
 		return err
 	}
 
-	rewrittenNode, err := cfg.rewrite(node)
+	start, end, err := cfg.findSelection(node)
+	if err != nil {
+		return err
+	}
+
+	rewrittenNode, err := cfg.rewrite(node, start, end)
 	if err != nil {
 		return err
 	}
@@ -178,7 +183,7 @@ func realMain() error {
 		return err
 	}
 
-	fmt.Fprintln(os.Stdout, out)
+	fmt.Println(out)
 	return nil
 }
 
@@ -200,16 +205,18 @@ func (c *config) parse() (ast.Node, error) {
 	return parser.ParseFile(c.fset, c.file, contents, parser.ParseComments)
 }
 
-func (c *config) rewrite(node ast.Node) (ast.Node, error) {
+// findSelection returns the start and end position of the fields that are
+// suspect to change. It depends on the line, struct or offset selection.
+func (c *config) findSelection(node ast.Node) (int, int, error) {
 	if c.line != "" {
 		return c.lineSelection(node)
 	} else if c.offset != 0 {
 		return c.offsetSelection(node)
 	} else if c.structName != "" {
 		return c.structSelection(node)
+	} else {
+		return 0, 0, errors.New("-line, -offset or -struct is not passed")
 	}
-
-	return nil, errors.New("-line, -offset or -struct is not passed")
 }
 
 func (c *config) process(fieldName, tagVal string) (string, error) {
@@ -481,30 +488,31 @@ func (c *config) format(file ast.Node) (string, error) {
 	}
 }
 
-func (c *config) lineSelection(file ast.Node) (ast.Node, error) {
+func (c *config) lineSelection(file ast.Node) (int, int, error) {
 	var err error
 	splitted := strings.Split(c.line, ",")
-	c.start, err = strconv.Atoi(splitted[0])
+
+	start, err := strconv.Atoi(splitted[0])
 	if err != nil {
-		return nil, err
+		return 0, 0, err
 	}
 
-	c.end = c.start
+	end := start
 	if len(splitted) == 2 {
-		c.end, err = strconv.Atoi(splitted[1])
+		end, err = strconv.Atoi(splitted[1])
 		if err != nil {
-			return nil, err
+			return 0, 0, err
 		}
 	}
 
-	if c.start > c.end {
-		return nil, errors.New("wrong range. start line cannot be larger than end line")
+	if start > end {
+		return 0, 0, errors.New("wrong range. start line cannot be larger than end line")
 	}
 
-	return c.rewriteFields(file)
+	return start, end, nil
 }
 
-func (c *config) structSelection(file ast.Node) (ast.Node, error) {
+func (c *config) structSelection(file ast.Node) (int, int, error) {
 	structs := collectStructs(file)
 
 	var encStruct *ast.StructType
@@ -515,17 +523,17 @@ func (c *config) structSelection(file ast.Node) (ast.Node, error) {
 	}
 
 	if encStruct == nil {
-		return nil, errors.New("struct name does not exist")
+		return 0, 0, errors.New("struct name does not exist")
 	}
 
 	// struct selects all lines inside a struct
-	c.start = c.fset.Position(encStruct.Pos()).Line
-	c.end = c.fset.Position(encStruct.End()).Line
+	start := c.fset.Position(encStruct.Pos()).Line
+	end := c.fset.Position(encStruct.End()).Line
 
-	return c.rewriteFields(file)
+	return start, end, nil
 }
 
-func (c *config) offsetSelection(file ast.Node) (ast.Node, error) {
+func (c *config) offsetSelection(file ast.Node) (int, int, error) {
 	structs := collectStructs(file)
 
 	var encStruct *ast.StructType
@@ -540,17 +548,19 @@ func (c *config) offsetSelection(file ast.Node) (ast.Node, error) {
 	}
 
 	if encStruct == nil {
-		return nil, errors.New("offset is not inside a struct")
+		return 0, 0, errors.New("offset is not inside a struct")
 	}
 
 	// offset selects all fields
-	c.start = c.fset.Position(encStruct.Pos()).Line
-	c.end = c.fset.Position(encStruct.End()).Line
+	start := c.fset.Position(encStruct.Pos()).Line
+	end := c.fset.Position(encStruct.End()).Line
 
-	return c.rewriteFields(file)
+	return start, end, nil
 }
 
-func (c *config) rewriteFields(node ast.Node) (ast.Node, error) {
+// rewrite rewrites the node for structs between the start and end
+// positions
+func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 	var rewriteErr error
 	rewriteFunc := func(n ast.Node) bool {
 		x, ok := n.(*ast.StructType)
@@ -561,7 +571,7 @@ func (c *config) rewriteFields(node ast.Node) (ast.Node, error) {
 		for _, f := range x.Fields.List {
 			line := c.fset.Position(f.Pos()).Line
 
-			if !(c.start <= line && line <= c.end) {
+			if !(start <= line && line <= end) {
 				continue
 			}
 
@@ -597,6 +607,10 @@ func (c *config) rewriteFields(node ast.Node) (ast.Node, error) {
 	}
 
 	ast.Inspect(node, rewriteFunc)
+
+	c.start = start
+	c.end = end
+
 	return node, rewriteErr
 }
 

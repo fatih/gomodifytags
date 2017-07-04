@@ -251,12 +251,17 @@ func TestRewrite(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			node, err = ts.cfg.rewrite(node)
+			start, end, err := ts.cfg.findSelection(node)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			out, err := ts.cfg.format(node)
+			rewrittenNode, err := ts.cfg.rewrite(node, start, end)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			out, err := ts.cfg.format(rewrittenNode)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -347,7 +352,12 @@ func TestJSON(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			rewrittenNode, err := ts.cfg.rewrite(node)
+			start, end, err := ts.cfg.findSelection(node)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rewrittenNode, err := ts.cfg.rewrite(node, start, end)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -418,7 +428,12 @@ type foo struct {
 		t.Fatal(err)
 	}
 
-	rewrittenNode, err := cfg.rewrite(node)
+	start, end, err := cfg.findSelection(node)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rewrittenNode, err := cfg.rewrite(node, start, end)
 	if err != nil {
 		t.Fatal(err)
 	}
