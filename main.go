@@ -100,7 +100,7 @@ func realMain() error {
 		flagOverride  = flag.Bool("override", false, "Override current tags when adding tags")
 		flagTransform = flag.String("transform", "snakecase",
 			"Transform adds a transform rule when adding tags."+
-				" Current options: [snakecase, camelcase]")
+				" Current options: [snakecase, camelcase, lispcase]")
 		flagSort = flag.Bool("sort", false,
 			"Sort sorts the tags in increasing order according to the key name")
 
@@ -354,6 +354,13 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		}
 
 		name = strings.Join(lowerSplitted, "_")
+	case "lispcase":
+		var lowerSplitted []string
+		for _, s := range splitted {
+			lowerSplitted = append(lowerSplitted, strings.ToLower(s))
+		}
+
+		name = strings.Join(lowerSplitted, "-")
 	case "camelcase":
 		var titled []string
 		for _, s := range splitted {

@@ -197,6 +197,15 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "line_lispcase_add",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,6",
+				transform: "lispcase",
+			},
+		},
+		{
 			file: "line_camelcase_add",
 			cfg: &config{
 				add:       []string{"json"},

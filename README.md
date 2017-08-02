@@ -141,6 +141,12 @@ type Server struct {
 }
 ```
 
+We currently support the following transformations:
+
+* `snakecase`: `"BaseDomain"` -> `"base_domain"`
+* `camelcase`: `"BaseDomain"` -> `"baseDomain"`
+* `lispcase`:  `"BaseDomain"` -> `"base-domain"`
+
 You can also pass a static value for each fields. This is useful if you use Go
 packages that validates the struct fields or extract values for certain
 operations. The following example adds the `json` key, a `validate` key with
