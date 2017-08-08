@@ -249,6 +249,15 @@ func TestRewrite(t *testing.T) {
 				transform: "snakecase",
 			},
 		},
+		{
+			file: "errors",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,7",
+				transform: "snakecase",
+			},
+		},
 	}
 
 	for _, ts := range test {
@@ -267,10 +276,12 @@ func TestRewrite(t *testing.T) {
 
 			rewrittenNode, err := ts.cfg.rewrite(node, start, end)
 			if err != nil {
-				t.Fatal(err)
+				if _, ok := err.(*rewriteErrors); !ok {
+					t.Fatal(err)
+				}
 			}
 
-			out, err := ts.cfg.format(rewrittenNode)
+			out, err := ts.cfg.format(rewrittenNode, err)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -346,6 +357,13 @@ func TestJSON(t *testing.T) {
 			},
 			err: errors.New("line selection is invalid"),
 		},
+		{
+			file: "json_errors",
+			cfg: &config{
+				add:  []string{"json"},
+				line: "4,7",
+			},
+		},
 	}
 
 	for _, ts := range test {
@@ -368,10 +386,12 @@ func TestJSON(t *testing.T) {
 
 			rewrittenNode, err := ts.cfg.rewrite(node, start, end)
 			if err != nil {
-				t.Fatal(err)
+				if _, ok := err.(*rewriteErrors); !ok {
+					t.Fatal(err)
+				}
 			}
 
-			out, err := ts.cfg.format(rewrittenNode)
+			out, err := ts.cfg.format(rewrittenNode, err)
 			if !reflect.DeepEqual(err, ts.err) {
 				t.Logf("want: %v", ts.err)
 				t.Logf("got: %v", err)
@@ -447,7 +467,7 @@ type foo struct {
 		t.Fatal(err)
 	}
 
-	got, err := cfg.format(rewrittenNode)
+	got, err := cfg.format(rewrittenNode, err)
 	if err != nil {
 		t.Fatal(err)
 	}
