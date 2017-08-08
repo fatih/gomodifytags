@@ -30,11 +30,12 @@ type structType struct {
 	node *ast.StructType
 }
 
-// output is used usually for tools
+// output is used usually by editors
 type output struct {
-	Start int      `json:"start"`
-	End   int      `json:"end"`
-	Lines []string `json:"lines"`
+	Start  int      `json:"start"`
+	End    int      `json:"end"`
+	Lines  []string `json:"lines"`
+	Errors []string `json:"errors,omitempty"`
 }
 
 // config defines how tags should be modified
@@ -173,12 +174,14 @@ func realMain() error {
 		return err
 	}
 
-	rewrittenNode, err := cfg.rewrite(node, start, end)
-	if err != nil {
-		return err
+	rewrittenNode, errs := cfg.rewrite(node, start, end)
+	if errs != nil {
+		if _, ok := errs.(*rewriteErrors); !ok {
+			return errs
+		}
 	}
 
-	out, err := cfg.format(rewrittenNode)
+	out, err := cfg.format(rewrittenNode, errs)
 	if err != nil {
 		return err
 	}
@@ -435,7 +438,7 @@ func collectStructs(node ast.Node) map[token.Pos]*structType {
 	return structs
 }
 
-func (c *config) format(file ast.Node) (string, error) {
+func (c *config) format(file ast.Node, rwErrs error) (string, error) {
 	switch c.output {
 	case "source":
 		var buf bytes.Buffer
@@ -482,6 +485,14 @@ func (c *config) format(file ast.Node) (string, error) {
 			Start: c.start,
 			End:   c.end,
 			Lines: lines[c.start-1 : c.end],
+		}
+
+		if rwErrs != nil {
+			if r, ok := rwErrs.(*rewriteErrors); ok {
+				for _, err := range r.errs {
+					out.Errors = append(out.Errors, err.Error())
+				}
+			}
 		}
 
 		o, err := json.MarshalIndent(out, "", "  ")
@@ -568,7 +579,8 @@ func (c *config) offsetSelection(file ast.Node) (int, int, error) {
 // rewrite rewrites the node for structs between the start and end
 // positions
 func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
-	var rewriteErr error
+	errs := &rewriteErrors{errs: make([]error, 0)}
+
 	rewriteFunc := func(n ast.Node) bool {
 		x, ok := n.(*ast.StructType)
 		if !ok {
@@ -603,8 +615,12 @@ func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 
 			res, err := c.process(fieldName, f.Tag.Value)
 			if err != nil {
-				rewriteErr = err
-				return true
+				errs.Append(fmt.Errorf("%s:%d:%d:%s",
+					c.fset.Position(f.Pos()).Filename,
+					c.fset.Position(f.Pos()).Line,
+					c.fset.Position(f.Pos()).Column,
+					err))
+				continue
 			}
 
 			f.Tag.Value = res
@@ -618,7 +634,11 @@ func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 	c.start = start
 	c.end = end
 
-	return node, rewriteErr
+	if len(errs.errs) == 0 {
+		return node, nil
+	}
+
+	return node, errs
 }
 
 // validate validates whether the config is valid or not
@@ -653,4 +673,24 @@ func (c *config) validate() error {
 
 func quote(tag string) string {
 	return "`" + tag + "`"
+}
+
+type rewriteErrors struct {
+	errs []error
+}
+
+func (r *rewriteErrors) Error() string {
+	var buf bytes.Buffer
+	for _, e := range r.errs {
+		buf.WriteString(fmt.Sprintf("%s\n", e.Error()))
+	}
+	return buf.String()
+}
+
+func (r *rewriteErrors) Append(err error) {
+	if err == nil {
+		return
+	}
+
+	r.errs = append(r.errs, err)
 }
