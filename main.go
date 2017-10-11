@@ -225,7 +225,7 @@ func (c *config) findSelection(node ast.Node) (int, int, error) {
 	}
 }
 
-func (c *config) process(fieldName, prefix, tagVal string) (string, error) {
+func (c *config) process(fieldName, tagVal string) (string, error) {
 	var tag string
 	if tagVal != "" {
 		var err error
@@ -249,7 +249,7 @@ func (c *config) process(fieldName, prefix, tagVal string) (string, error) {
 	tags = c.clearTags(tags)
 	tags = c.clearOptions(tags)
 
-	tags, err = c.addTags(fieldName, prefix, tags)
+	tags, err = c.addTags(fieldName, tags)
 	if err != nil {
 		return "", err
 	}
@@ -343,7 +343,7 @@ func (c *config) addTagOptions(tags *structtag.Tags) (*structtag.Tags, error) {
 	return tags, nil
 }
 
-func (c *config) addTags(fieldName, prefix string, tags *structtag.Tags) (*structtag.Tags, error) {
+func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tags, error) {
 	if c.add == nil || len(c.add) == 0 {
 		return tags, nil
 	}
@@ -356,21 +356,21 @@ func (c *config) addTags(fieldName, prefix string, tags *structtag.Tags) (*struc
 	case "snakecase":
 		var lowerSplitted []string
 		for _, s := range splitted {
-			lowerSplitted = append(lowerSplitted, strings.ToLower(prefix+s))
+			lowerSplitted = append(lowerSplitted, strings.ToLower(c.prefix+s))
 		}
 
 		name = strings.Join(lowerSplitted, "_")
 	case "lispcase":
 		var lowerSplitted []string
 		for _, s := range splitted {
-			lowerSplitted = append(lowerSplitted, strings.ToLower(prefix+s))
+			lowerSplitted = append(lowerSplitted, strings.ToLower(c.prefix+s))
 		}
 
 		name = strings.Join(lowerSplitted, "-")
 	case "camelcase":
 		var titled []string
 		for _, s := range splitted {
-			titled = append(titled, strings.Title(prefix+s))
+			titled = append(titled, strings.Title(c.prefix+s))
 		}
 
 		titled[0] = strings.ToLower(titled[0])
@@ -616,7 +616,7 @@ func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 				fieldName = ident.Name
 			}
 
-			res, err := c.process(fieldName, c.prefix, f.Tag.Value)
+			res, err := c.process(fieldName, f.Tag.Value)
 			if err != nil {
 				errs.Append(fmt.Errorf("%s:%d:%d:%s",
 					c.fset.Position(f.Pos()).Filename,
