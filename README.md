@@ -346,18 +346,18 @@ numbers to only change certain files. Suppose we only want to remove the tags
 for the `Credentials` struct (including the fields) for the following code (lines are included):
 
 ```go
-01  package main
-02  
-03  type Server struct {
-04  	Name        string `json:"name" xml:"name"`
-05  	Port        int    `json:"port" xml:"port"`
-06  	EnableLogs  bool   `json:"enable_logs" xml:"enable_logs"`
-07  	BaseDomain  string `json:"base_domain" xml:"base_domain"`
-08  	Credentials struct {
-09  		Username string `json:"username" xml:"username"`
-10  		Password string `json:"password" xml:"password"`
-11  	} `json:"credentials" xml:"credentials"`
-12  }
+package main
+ 
+type Server struct {
+  	Name        string `json:"name" xml:"name"`
+  	Port        int    `json:"port" xml:"port"`
+  	EnableLogs  bool   `json:"enable_logs" xml:"enable_logs"`
+  	BaseDomain  string `json:"base_domain" xml:"base_domain"`
+  	Credentials struct {
+  		Username string `json:"username" xml:"username"`
+  		Password string `json:"password" xml:"password"`
+  	} `json:"credentials" xml:"credentials"`
+}
 ```
 
 To remove the tags for the credentials we're going to pass the `-line` flag:
