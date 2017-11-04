@@ -241,6 +241,15 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "offset_add_composite",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				offset:    40,
+				transform: "snakecase",
+			},
+		},
+		{
 			file: "offset_add_duplicate",
 			cfg: &config{
 				add:       []string{"json"},
