@@ -412,18 +412,23 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 func collectStructs(node ast.Node) map[token.Pos]*structType {
 	structs := make(map[token.Pos]*structType, 0)
 	collectStructs := func(n ast.Node) bool {
-		t, ok := n.(*ast.TypeSpec)
-		if !ok {
-			return true
+		var t ast.Expr
+		var structName string
+
+		switch x := n.(type) {
+		case *ast.TypeSpec:
+			if x.Type == nil {
+				return true
+
+			}
+
+			structName = x.Name.Name
+			t = x.Type
+		case *ast.CompositeLit:
+			t = x.Type
 		}
 
-		if t.Type == nil {
-			return true
-		}
-
-		structName := t.Name.Name
-
-		x, ok := t.Type.(*ast.StructType)
+		x, ok := t.(*ast.StructType)
 		if !ok {
 			return true
 		}
