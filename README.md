@@ -7,6 +7,9 @@ remove existing tags. It also allows you to add and remove tag options. It's
 intended to be used by an editor, but also has modes to run it from the
 terminal. Read the usage section below for more information.
 
+![gomodifytags](https://user-images.githubusercontent.com/438920/32691304-a1c7e47c-c716-11e7-977c-f4d0f8c616be.gif)
+
+
 # Install
 
 ```bash
