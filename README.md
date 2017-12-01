@@ -22,6 +22,7 @@ go get github.com/fatih/gomodifytags
 * [go-plus (atom)](https://github.com/joefitzgerald/go-plus) with commands `golang:add-tags` and `golang:remove-tags`
 * [vscode-go](https://github.com/Microsoft/vscode-go) with commands `Go: Add Tags` and `Go: Remove Tags`
 * [A (Acme)](https://github.com/davidrjenni/A) with commands `addtags` and `rmtags`
+* [emacs-go-tag](https://github.com/brantou/emacs-go-tag) with commands `go-tag-add` and `go-tag-remove`
 
 # Usage
 
