@@ -373,6 +373,13 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		titled[0] = strings.ToLower(titled[0])
 
 		name = strings.Join(titled, "")
+	case "pascalcase":
+		var titled []string
+		for _, s := range splitted {
+			titled = append(titled, strings.Title(s))
+		}
+
+		name = strings.Join(titled, "")
 	default:
 		unknown = true
 	}
