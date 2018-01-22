@@ -377,10 +377,20 @@ func TestJSON(t *testing.T) {
 			},
 		},
 		{
+			// both small & end range larger than file
 			file: "json_single",
 			cfg: &config{
 				add:  []string{"json"},
 				line: "30,32", // invalid selection
+			},
+			err: errors.New("line selection is invalid"),
+		},
+		{
+			// end range larger than file
+			file: "json_single",
+			cfg: &config{
+				add:  []string{"json"},
+				line: "4,50", // invalid selection
 			},
 			err: errors.New("line selection is invalid"),
 		},

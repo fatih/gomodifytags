@@ -489,7 +489,8 @@ func (c *config) format(file ast.Node, rwErrs error) (string, error) {
 			lines = append(lines, scanner.Text())
 		}
 
-		if c.start > len(lines) {
+		// prevent selection to be larger than the actual number of lines
+		if c.start > len(lines) || c.end > len(lines) {
 			return "", errors.New("line selection is invalid")
 		}
 
