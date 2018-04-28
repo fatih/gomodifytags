@@ -552,11 +552,10 @@ func (c *config) lineSelection(file ast.Node) ([]int, error) {
 
 func (c *config) structSelection(file ast.Node) ([]int, error) {
 	structs := collectStructs(file)
-	fmt.Println(c.structName)
+
 	var encStructs []*ast.StructType
 	for _, st := range structs {
 		for _, structname := range c.structName {
-			fmt.Println("struct names :", structname)
 			if st.name == structname {
 				encStructs = append(encStructs, st.node)
 			}
