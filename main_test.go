@@ -27,7 +27,7 @@ func TestRewrite(t *testing.T) {
 			cfg: &config{
 				add:        []string{"json"},
 				output:     "source",
-				structName: "foo",
+				structName: []string{"foo"},
 				transform:  "snakecase",
 			},
 		},
@@ -36,7 +36,7 @@ func TestRewrite(t *testing.T) {
 			cfg: &config{
 				add:        []string{"json"},
 				output:     "source",
-				structName: "foo",
+				structName: []string{"foo"},
 				transform:  "snakecase",
 			},
 		},
@@ -45,7 +45,7 @@ func TestRewrite(t *testing.T) {
 			cfg: &config{
 				remove:     []string{"json"},
 				output:     "source",
-				structName: "foo",
+				structName: []string{"foo"},
 			},
 		},
 		{
@@ -53,7 +53,7 @@ func TestRewrite(t *testing.T) {
 			cfg: &config{
 				clear:      true,
 				output:     "source",
-				structName: "foo",
+				structName: []string{"foo"},
 			},
 		},
 		{
@@ -61,7 +61,7 @@ func TestRewrite(t *testing.T) {
 			cfg: &config{
 				clearOption: true,
 				output:      "source",
-				structName:  "foo",
+				structName:  []string{"foo"},
 			},
 		},
 		{
@@ -296,21 +296,23 @@ func TestRewrite(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			start, end, err := ts.cfg.findSelection(node)
+			lines, err := ts.cfg.findSelection(node)
 			if err != nil {
 				t.Fatal(err)
 			}
+			var out string
+			for i := 1; i < len(lines); i = i + 2 {
+				rewrittenNode, err := ts.cfg.rewrite(node, lines[i-1], lines[i])
+				if err != nil {
+					if _, ok := err.(*rewriteErrors); !ok {
+						t.Fatal(err)
+					}
+				}
 
-			rewrittenNode, err := ts.cfg.rewrite(node, start, end)
-			if err != nil {
-				if _, ok := err.(*rewriteErrors); !ok {
+				out, err = ts.cfg.format(rewrittenNode, err)
+				if err != nil {
 					t.Fatal(err)
 				}
-			}
-
-			out, err := ts.cfg.format(rewrittenNode, err)
-			if err != nil {
-				t.Fatal(err)
 			}
 			got := []byte(out)
 
@@ -416,27 +418,30 @@ func TestJSON(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			start, end, err := ts.cfg.findSelection(node)
+			lines, err := ts.cfg.findSelection(node)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			rewrittenNode, err := ts.cfg.rewrite(node, start, end)
-			if err != nil {
-				if _, ok := err.(*rewriteErrors); !ok {
-					t.Fatal(err)
+			var out string
+			for i := 1; i < len(lines); i = i + 2 {
+				rewrittenNode, err := ts.cfg.rewrite(node, lines[i-1], lines[i])
+				if err != nil {
+					if _, ok := err.(*rewriteErrors); !ok {
+						t.Fatal(err)
+					}
 				}
-			}
 
-			out, err := ts.cfg.format(rewrittenNode, err)
-			if !reflect.DeepEqual(err, ts.err) {
-				t.Logf("want: %v", ts.err)
-				t.Logf("got: %v", err)
-				t.Fatalf("unexpected error")
-			}
+				out, err = ts.cfg.format(rewrittenNode, err)
+				if !reflect.DeepEqual(err, ts.err) {
+					t.Logf("want: %v", ts.err)
+					t.Logf("got: %v", err)
+					t.Fatalf("unexpected error")
+				}
 
-			if ts.err != nil {
-				return
+				if ts.err != nil {
+					return
+				}
 			}
 
 			got := []byte(out)
@@ -475,7 +480,7 @@ func TestModifiedRewrite(t *testing.T) {
 	cfg := &config{
 		add:        []string{"json"},
 		output:     "source",
-		structName: "foo",
+		structName: []string{"foo"},
 		transform:  "snakecase",
 		file:       "struct_add_modified",
 		modified: strings.NewReader(`struct_add_modified
@@ -494,19 +499,22 @@ type foo struct {
 		t.Fatal(err)
 	}
 
-	start, end, err := cfg.findSelection(node)
+	lines, err := cfg.findSelection(node)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	rewrittenNode, err := cfg.rewrite(node, start, end)
-	if err != nil {
-		t.Fatal(err)
-	}
+	var got string
+	for i := 1; i < len(lines); i = i + 2 {
+		rewrittenNode, errs := cfg.rewrite(node, lines[i-1], lines[i])
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	got, err := cfg.format(rewrittenNode, err)
-	if err != nil {
-		t.Fatal(err)
+		got, err = cfg.format(rewrittenNode, errs)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	golden := filepath.Join(fixtureDir, "struct_add.golden")
@@ -525,7 +533,7 @@ func TestModifiedFileMissing(t *testing.T) {
 	cfg := &config{
 		add:        []string{"json"},
 		output:     "source",
-		structName: "foo",
+		structName: []string{"foo"},
 		transform:  "snakecase",
 		file:       "struct_add_modified",
 		modified: strings.NewReader(`file_that_doesnt_exist
