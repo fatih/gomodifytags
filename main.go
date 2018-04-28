@@ -46,7 +46,7 @@ type config struct {
 	modified io.Reader
 
 	offset     int
-	structName string
+	structName []string
 	line       string
 	start, end int
 
@@ -88,7 +88,7 @@ func realMain() error {
 				"Can be anwhere from the comment until closing bracket")
 		flagLine = flag.String("line", "",
 			"Line number of the field or a range of line. i.e: 4 or 4,8")
-		flagStruct = flag.String("struct", "", "Struct name to be processed")
+		flagStruct = flag.String("struct", "", "Adds structs for the comma seperated list of struct names")
 
 		// tag flags
 		flagRemoveTags = flag.String("remove-tags", "",
@@ -128,7 +128,6 @@ func realMain() error {
 	cfg := &config{
 		file:        *flagFile,
 		line:        *flagLine,
-		structName:  *flagStruct,
 		offset:      *flagOffset,
 		output:      *flagOutput,
 		write:       *flagWrite,
@@ -141,6 +140,10 @@ func realMain() error {
 
 	if *flagModified {
 		cfg.modified = os.Stdin
+	}
+
+	if *flagStruct != "" {
+		cfg.structName = strings.Split(*flagStruct, ",")
 	}
 
 	if *flagAddTags != "" {
@@ -169,24 +172,28 @@ func realMain() error {
 		return err
 	}
 
-	start, end, err := cfg.findSelection(node)
+	lines, err := cfg.findSelection(node)
 	if err != nil {
 		return err
 	}
 
-	rewrittenNode, errs := cfg.rewrite(node, start, end)
-	if errs != nil {
-		if _, ok := errs.(*rewriteErrors); !ok {
-			return errs
+	var out string
+	for i := 1; i < len(lines); i = i + 2 {
+		rewrittenNode, errs := cfg.rewrite(node, lines[i-1], lines[i])
+		if errs != nil {
+			if _, ok := errs.(*rewriteErrors); !ok {
+				return errs
+			}
+		}
+
+		out, err = cfg.format(rewrittenNode, errs)
+		if err != nil {
+			return err
 		}
 	}
 
-	out, err := cfg.format(rewrittenNode, errs)
-	if err != nil {
-		return err
-	}
-
 	fmt.Println(out)
+
 	return nil
 }
 
@@ -210,15 +217,15 @@ func (c *config) parse() (ast.Node, error) {
 
 // findSelection returns the start and end position of the fields that are
 // suspect to change. It depends on the line, struct or offset selection.
-func (c *config) findSelection(node ast.Node) (int, int, error) {
+func (c *config) findSelection(node ast.Node) ([]int, error) {
 	if c.line != "" {
 		return c.lineSelection(node)
 	} else if c.offset != 0 {
 		return c.offsetSelection(node)
-	} else if c.structName != "" {
+	} else if len(c.structName) > 0 {
 		return c.structSelection(node)
 	} else {
-		return 0, 0, errors.New("-line, -offset or -struct is not passed")
+		return nil, errors.New("-line, -offset or -struct is not passed")
 	}
 }
 
@@ -519,52 +526,58 @@ func (c *config) format(file ast.Node, rwErrs error) (string, error) {
 	}
 }
 
-func (c *config) lineSelection(file ast.Node) (int, int, error) {
+func (c *config) lineSelection(file ast.Node) ([]int, error) {
 	var err error
 	splitted := strings.Split(c.line, ",")
 
 	start, err := strconv.Atoi(splitted[0])
 	if err != nil {
-		return 0, 0, err
+		return nil, err
 	}
 
 	end := start
 	if len(splitted) == 2 {
 		end, err = strconv.Atoi(splitted[1])
 		if err != nil {
-			return 0, 0, err
+			return nil, err
 		}
 	}
 
 	if start > end {
-		return 0, 0, errors.New("wrong range. start line cannot be larger than end line")
+		return nil, errors.New("wrong range. start line cannot be larger than end line")
 	}
 
-	return start, end, nil
+	return []int{start, end}, nil
 }
 
-func (c *config) structSelection(file ast.Node) (int, int, error) {
+func (c *config) structSelection(file ast.Node) ([]int, error) {
 	structs := collectStructs(file)
-
-	var encStruct *ast.StructType
+	fmt.Println(c.structName)
+	var encStructs []*ast.StructType
 	for _, st := range structs {
-		if st.name == c.structName {
-			encStruct = st.node
+		for _, structname := range c.structName {
+			fmt.Println("struct names :", structname)
+			if st.name == structname {
+				encStructs = append(encStructs, st.node)
+			}
 		}
 	}
 
-	if encStruct == nil {
-		return 0, 0, errors.New("struct name does not exist")
+	if encStructs == nil {
+		return nil, errors.New("struct name does not exist")
 	}
 
+	lines := make([]int, 0)
 	// struct selects all lines inside a struct
-	start := c.fset.Position(encStruct.Pos()).Line
-	end := c.fset.Position(encStruct.End()).Line
+	for _, encStruct := range encStructs {
+		lines = append(lines, c.fset.Position(encStruct.Pos()).Line)
+		lines = append(lines, c.fset.Position(encStruct.End()).Line)
+	}
 
-	return start, end, nil
+	return lines, nil
 }
 
-func (c *config) offsetSelection(file ast.Node) (int, int, error) {
+func (c *config) offsetSelection(file ast.Node) ([]int, error) {
 	structs := collectStructs(file)
 
 	var encStruct *ast.StructType
@@ -579,14 +592,14 @@ func (c *config) offsetSelection(file ast.Node) (int, int, error) {
 	}
 
 	if encStruct == nil {
-		return 0, 0, errors.New("offset is not inside a struct")
+		return nil, errors.New("offset is not inside a struct")
 	}
 
 	// offset selects all fields
 	start := c.fset.Position(encStruct.Pos()).Line
 	end := c.fset.Position(encStruct.End()).Line
 
-	return start, end, nil
+	return []int{start, end}, nil
 }
 
 // rewrite rewrites the node for structs between the start and end
@@ -660,13 +673,13 @@ func (c *config) validate() error {
 		return errors.New("no file is passed")
 	}
 
-	if c.line == "" && c.offset == 0 && c.structName == "" {
+	if c.line == "" && c.offset == 0 && len(c.structName) == 0 {
 		return errors.New("-line, -offset or -struct is not passed")
 	}
 
 	if c.line != "" && c.offset != 0 ||
-		c.line != "" && c.structName != "" ||
-		c.offset != 0 && c.structName != "" {
+		c.line != "" && len(c.structName) > 0 ||
+		c.offset != 0 && len(c.structName) > 0 {
 		return errors.New("-line, -offset or -struct cannot be used together. pick one")
 	}
 
