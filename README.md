@@ -515,3 +515,31 @@ Each archive entry consists of:
  - the file name, followed by a newline
  - the (decimal) file size, followed by a newline
  - the contents of the file
+
+# Development
+
+At least Go `v1.11.x` is required. Older versions might work, but it's not
+recommended.
+
+`gomodifytags` uses [Go modules](https://github.com/golang/go/wiki/Modules) for
+dependency management. This means that you don't have to `go get` it into a
+GOPATH anymore. Checkout the repository:
+
+```
+git clone https://github.com/fatih/gomodifytags.git
+```
+
+Start developing the code. To build a binary, execute:
+
+```
+GO111MODULE=on go build -mod=vendor
+```
+
+This will create a `gomodifytags` binary in the current directory. To test the
+package, run the following:
+
+```
+GO111MODULE=on go test -v -mod=vendor
+```
+
+If everything works fine, feel free to open a pull request with your changes.
