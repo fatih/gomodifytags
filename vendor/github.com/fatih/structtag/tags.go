@@ -265,13 +265,19 @@ func (t *Tag) HasOption(opt string) bool {
 	return false
 }
 
-// String reassembles the tag into a valid tag field representation
-func (t *Tag) String() string {
+// Value returns the raw value of the tag, i.e. if the tag is
+// `json:"foo,omitempty", the Value is "foo,omitempty"
+func (t *Tag) Value() string {
 	options := strings.Join(t.Options, ",")
 	if options != "" {
-		return fmt.Sprintf(`%s:"%s,%s"`, t.Key, t.Name, options)
+		return fmt.Sprintf(`%s,%s`, t.Name, options)
 	}
-	return fmt.Sprintf(`%s:"%s"`, t.Key, t.Name)
+	return t.Name
+}
+
+// String reassembles the tag into a valid tag field representation
+func (t *Tag) String() string {
+	return fmt.Sprintf(`%s:"%s"`, t.Key, t.Value())
 }
 
 // GoString implements the fmt.GoStringer interface
