@@ -433,6 +433,9 @@ func collectStructs(node ast.Node) map[token.Pos]*structType {
 			t = x.Type
 		case *ast.CompositeLit:
 			t = x.Type
+		case *ast.ValueSpec:
+			structName = x.Names[0].Name
+			t = x.Type
 		}
 
 		x, ok := t.(*ast.StructType)

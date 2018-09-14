@@ -259,6 +259,24 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "offset_add_literal_in",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				offset:    46,
+				transform: "snakecase",
+			},
+		},
+		{
+			file: "offset_add_literal_out",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				offset:    32,
+				transform: "snakecase",
+			},
+		},
+		{
 			file: "errors",
 			cfg: &config{
 				add:       []string{"json"},
