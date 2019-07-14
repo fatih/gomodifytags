@@ -101,7 +101,7 @@ func realMain() error {
 		flagOverride  = flag.Bool("override", false, "Override current tags when adding tags")
 		flagTransform = flag.String("transform", "snakecase",
 			"Transform adds a transform rule when adding tags."+
-				" Current options: [snakecase, camelcase, lispcase]")
+				" Current options: [snakecase, camelcase, lispcase, pascalcase]")
 		flagSort = flag.Bool("sort", false,
 			"Sort sorts the tags in increasing order according to the key name")
 
@@ -492,7 +492,8 @@ func (c *config) format(file ast.Node, rwErrs error) (string, error) {
 			lines = append(lines, scanner.Text())
 		}
 
-		// prevent selection to be larger than the actual number of lines
+		// prevent selection to be larger than the actual number of
+		// lines
 		if c.start > len(lines) || c.end > len(lines) {
 			return "", errors.New("line selection is invalid")
 		}
