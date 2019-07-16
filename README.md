@@ -152,6 +152,7 @@ We currently support the following transformations:
 * `camelcase`: `"BaseDomain"` -> `"baseDomain"`
 * `lispcase`:  `"BaseDomain"` -> `"base-domain"`
 * `pascalcase`:  `"BaseDomain"` -> `"BaseDomain"`
+* `keep`:  keeps the original field name
 
 You can also pass a static value for each fields. This is useful if you use Go
 packages that validates the struct fields or extract values for certain
