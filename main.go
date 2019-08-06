@@ -10,6 +10,7 @@ import (
 	"go/ast"
 	"go/format"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"io"
 	"io/ioutil"
@@ -483,19 +484,46 @@ func (c *config) format(file ast.Node, rwErrs error) (string, error) {
 		// other declarations in between them. Printing the file and cutting
 		// the selection is the easier and simpler to do.
 		var buf bytes.Buffer
-		err := format.Node(&buf, c.fset, file)
+
+		// this is the default config from `format.Node()`, but we add
+		// `printer.SourcePos` to get the original source position of the
+		// modified lines
+		cfg := printer.Config{Mode: printer.SourcePos | printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
+		err := cfg.Fprint(&buf, c.fset, file)
 		if err != nil {
 			return "", err
 		}
 
 		var lines []string
-		scanner := bufio.NewScanner(bytes.NewBufferString(buf.String()))
+		scanner := bufio.NewScanner(&buf)
 		for scanner.Scan() {
-			lines = append(lines, scanner.Text())
+			txt := scanner.Text()
+
+			// check for any line directive and store it for next iteration to
+			// re-construct the original file. If it's not a line directive,
+			// continue consturcting the original file
+			if !strings.HasPrefix(txt, "//line") {
+				lines = append(lines, txt)
+				continue
+			}
+
+			splitted := strings.Split(txt, ":")
+			if len(splitted) != 2 {
+				return "", fmt.Errorf("invalid line directive found: %q", txt)
+			}
+			lineNr, err := strconv.Atoi(splitted[1])
+			if err != nil {
+				return "", err
+			}
+
+			for i := len(lines); i < lineNr-1; i++ {
+				lines = append(lines, "")
+			}
+
+			lines = lines[:lineNr-1]
 		}
 
-		// prevent selection to be larger than the actual number of
-		// lines
+		// prevent selection to be larger than the actual number of lines
 		if c.start > len(lines) || c.end > len(lines) {
 			return "", errors.New("line selection is invalid")
 		}
