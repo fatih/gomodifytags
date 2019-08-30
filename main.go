@@ -508,10 +508,21 @@ func (c *config) format(file ast.Node, rwErrs error) (string, error) {
 			}
 
 			splitted := strings.Split(txt, ":")
-			if len(splitted) != 2 {
+			splittedCnt := len(splitted)
+			// MacOS n Linux based systems would get line directives as follows
+			// `//line /file/path/to/file.go:linenumber`
+			// whereas Windows based systems would get line directives as follows
+			// `//line c:\\file\\path\\to\\file.go:linenumber`
+			if splittedCnt != 2 && splittedCnt != 3 {
 				return "", fmt.Errorf("invalid line directive found: %q", txt)
 			}
-			lineNr, err := strconv.Atoi(splitted[1])
+			var lineNr int
+			var err error
+			if splittedCnt == 2 {
+				lineNr, err = strconv.Atoi(splitted[1])
+			} else { // splittedCnt == 3, for Windows file paths
+				lineNr, err = strconv.Atoi(splitted[2])
+			}
 			if err != nil {
 				return "", err
 			}
