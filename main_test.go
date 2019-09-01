@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -611,5 +612,72 @@ type foo struct {
 	_, err := cfg.parse()
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestParseLines(t *testing.T) {
+	var tests = []struct {
+		file string
+	}{
+		{file: "line_directive_unix"},
+		{file: "line_directive_windows"},
+	}
+
+	for _, ts := range tests {
+		ts := ts
+
+		t.Run(ts.file, func(t *testing.T) {
+			filePath := filepath.Join(fixtureDir, fmt.Sprintf("%s.input", ts.file))
+
+			file, err := os.Open(filePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer file.Close()
+
+			out, err := parseLines(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			toBytes := func(lines []string) []byte {
+				var buf bytes.Buffer
+				for _, line := range lines {
+					buf.WriteString(line + "\n")
+				}
+				return buf.Bytes()
+			}
+
+			got := toBytes(out)
+
+			// update golden file if necessary
+			golden := filepath.Join(fixtureDir, fmt.Sprintf("%s.golden", ts.file))
+
+			if *update {
+				err := ioutil.WriteFile(golden, got, 0644)
+				if err != nil {
+					t.Error(err)
+				}
+				return
+			}
+
+			// get golden file
+			want, err := ioutil.ReadFile(golden)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			from, err := ioutil.ReadFile(filePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// compare
+			if !bytes.Equal(got, want) {
+				t.Errorf("case %s\ngot:\n====\n\n%s\nwant:\n=====\n\n%s\nfrom:\n=====\n\n%s\n",
+					ts.file, got, want, from)
+			}
+
+		})
 	}
 }
