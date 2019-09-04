@@ -494,33 +494,9 @@ func (c *config) format(file ast.Node, rwErrs error) (string, error) {
 			return "", err
 		}
 
-		var lines []string
-		scanner := bufio.NewScanner(&buf)
-		for scanner.Scan() {
-			txt := scanner.Text()
-
-			// check for any line directive and store it for next iteration to
-			// re-construct the original file. If it's not a line directive,
-			// continue consturcting the original file
-			if !strings.HasPrefix(txt, "//line") {
-				lines = append(lines, txt)
-				continue
-			}
-
-			splitted := strings.Split(txt, ":")
-			if len(splitted) != 2 {
-				return "", fmt.Errorf("invalid line directive found: %q", txt)
-			}
-			lineNr, err := strconv.Atoi(splitted[1])
-			if err != nil {
-				return "", err
-			}
-
-			for i := len(lines); i < lineNr-1; i++ {
-				lines = append(lines, "")
-			}
-
-			lines = lines[:lineNr-1]
+		lines, err := parseLines(&buf)
+		if err != nil {
+			return "", err
 		}
 
 		// prevent selection to be larger than the actual number of lines
@@ -740,4 +716,61 @@ func (r *rewriteErrors) Append(err error) {
 	}
 
 	r.errs = append(r.errs, err)
+}
+
+// parseLines parses the given buffer and returns a slice of lines
+func parseLines(buf io.Reader) ([]string, error) {
+	var lines []string
+	scanner := bufio.NewScanner(buf)
+	for scanner.Scan() {
+		txt := scanner.Text()
+
+		// check for any line directive and store it for next iteration to
+		// re-construct the original file. If it's not a line directive,
+		// continue consturcting the original file
+		if !strings.HasPrefix(txt, "//line") {
+			lines = append(lines, txt)
+			continue
+		}
+
+		lineNr, err := split(txt)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := len(lines); i < lineNr-1; i++ {
+			lines = append(lines, "")
+		}
+
+		lines = lines[:lineNr-1]
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("invalid scanner inputl: %s", err)
+	}
+
+	return lines, nil
+}
+
+// split splits the given line directive and returns the line number
+// see https://golang.org/cmd/compile/#hdr-Compiler_Directives for more
+// information
+// NOTE(arslan): this only splits the line directive that the go.Parser
+// outputs. If the go parser changes the format of the line directive, make
+// sure to fix it in the below function
+func split(line string) (int, error) {
+	for i := len(line) - 1; i >= 0; i-- {
+		if line[i] != ':' {
+			continue
+		}
+
+		nr, err := strconv.Atoi(line[i+1:])
+		if err != nil {
+			return 0, err
+		}
+
+		return nr, nil
+	}
+
+	return 0, fmt.Errorf("couldn't parse line: '%s'", line)
 }
