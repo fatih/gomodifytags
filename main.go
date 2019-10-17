@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"text/template"
 
 	"github.com/fatih/camelcase"
 	"github.com/fatih/structtag"
@@ -397,6 +398,14 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 			// transform. We don't return above in the default as the user
 			// might pass a value
 			return nil, fmt.Errorf("unknown transform option %q", c.transform)
+		} else if len(splitted) > 2 {
+			temp := key[len(splitted[0])+1:]
+			var err error
+			name, err = generateCustomFieldValue(temp, name)
+			if err != nil {
+				return nil, fmt.Errorf(" can not generate customValue %v", temp)
+			}
+			key = splitted[0]
 		}
 
 		tag, err := tags.Get(key)
@@ -773,4 +782,26 @@ func split(line string) (int, error) {
 	}
 
 	return 0, fmt.Errorf("couldn't parse line: '%s'", line)
+}
+
+// generateCustomFieldValue generate custom value of tag by go template syntax
+// eg:
+//  	type User struct{
+// 			Foo string `json:"foo" gorm:"column:foo" `
+// 		}
+// temp-> column:{{.fieldName}} fieldName-> foo
+// return: column:foo
+func generateCustomFieldValue(temp string, fieldName string) (string, error) {
+	value := ""
+	t, err := template.New("template").Parse(temp)
+	if err != nil {
+		return value, err
+	}
+	buffer := bytes.Buffer{}
+	err = t.Execute(&buffer, map[string]string{
+		"fieldName": fieldName})
+	if err == nil {
+		value = buffer.String()
+	}
+	return value, err
 }
