@@ -313,6 +313,26 @@ func TestRewrite(t *testing.T) {
 				transform: "snakecase",
 			},
 		},
+		{
+			file: "skip_private",
+			cfg: &config{
+				add:               []string{"json"},
+				output:            "source",
+				structName:        "foo",
+				transform:         "snakecase",
+				skipPrivateFields: true,
+			},
+		},
+		{
+			file: "skip_private_multiple_names",
+			cfg: &config{
+				add:               []string{"json"},
+				output:            "source",
+				structName:        "foo",
+				transform:         "snakecase",
+				skipPrivateFields: true,
+			},
+		},
 	}
 
 	for _, ts := range test {
