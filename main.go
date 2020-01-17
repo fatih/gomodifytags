@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/fatih/camelcase"
 	"github.com/fatih/structtag"
@@ -56,9 +57,10 @@ type config struct {
 	remove        []string
 	removeOptions []string
 
-	add        []string
-	addOptions []string
-	override   bool
+	add               []string
+	addOptions        []string
+	override          bool
+	skipPrivateFields bool
 
 	transform   string
 	sort        bool
@@ -99,8 +101,9 @@ func realMain() error {
 		flagAddTags = flag.String("add-tags", "",
 			"Adds tags for the comma separated list of keys."+
 				"Keys can contain a static value, i,e: json:foo")
-		flagOverride  = flag.Bool("override", false, "Override current tags when adding tags")
-		flagTransform = flag.String("transform", "snakecase",
+		flagOverride          = flag.Bool("override", false, "Override current tags when adding tags")
+		flagSkipPrivateFields = flag.Bool("skip-private", false, "Skip private fields")
+		flagTransform         = flag.String("transform", "snakecase",
 			"Transform adds a transform rule when adding tags."+
 				" Current options: [snakecase, camelcase, lispcase, pascalcase, keep]")
 		flagSort = flag.Bool("sort", false,
@@ -127,17 +130,18 @@ func realMain() error {
 	}
 
 	cfg := &config{
-		file:        *flagFile,
-		line:        *flagLine,
-		structName:  *flagStruct,
-		offset:      *flagOffset,
-		output:      *flagOutput,
-		write:       *flagWrite,
-		clear:       *flagClearTags,
-		clearOption: *flagClearOptions,
-		transform:   *flagTransform,
-		sort:        *flagSort,
-		override:    *flagOverride,
+		file:              *flagFile,
+		line:              *flagLine,
+		structName:        *flagStruct,
+		offset:            *flagOffset,
+		output:            *flagOutput,
+		write:             *flagWrite,
+		clear:             *flagClearTags,
+		clearOption:       *flagClearOptions,
+		transform:         *flagTransform,
+		sort:              *flagSort,
+		override:          *flagOverride,
+		skipPrivateFields: *flagSkipPrivateFields,
 	}
 
 	if *flagModified {
@@ -599,6 +603,13 @@ func (c *config) offsetSelection(file ast.Node) (int, int, error) {
 	return start, end, nil
 }
 
+func isPublicName(name string) bool {
+	for _, c := range name {
+		return unicode.IsUpper(c)
+	}
+	return false
+}
+
 // rewrite rewrites the node for structs between the start and end
 // positions
 func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
@@ -617,13 +628,19 @@ func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 				continue
 			}
 
-			if f.Tag == nil {
-				f.Tag = &ast.BasicLit{}
-			}
-
 			fieldName := ""
 			if len(f.Names) != 0 {
-				fieldName = f.Names[0].Name
+				for _, field := range f.Names {
+					if !c.skipPrivateFields || isPublicName(field.Name) {
+						fieldName = field.Name
+						break
+					}
+				}
+
+				// nothing to process, continue with next line
+				if fieldName == "" {
+					continue
+				}
 			}
 
 			// anonymous field
@@ -634,6 +651,10 @@ func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 				}
 
 				fieldName = ident.Name
+			}
+
+			if f.Tag == nil {
+				f.Tag = &ast.BasicLit{}
 			}
 
 			res, err := c.process(fieldName, f.Tag.Value)
