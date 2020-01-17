@@ -1,4 +1,4 @@
-# gomodifytags [![Build Status](https://travis-ci.org/fatih/gomodifytags.svg?branch=master)](https://travis-ci.org/fatih/gomodifytags)
+# gomodifytags 
 
 Go tool to modify/update field tags in structs. `gomodifytags` makes it easy to
 update, add or delete the tags in a struct field. You can easily add new tags,
