@@ -202,6 +202,27 @@ type Server struct {
 If the key already exists you don't have to use `-add-tags`
 
 
+### Skipping private fields
+
+By default all fields are processed. This main reason for this is to allow
+structs to evolve with time and be ready in case a field is exported in the
+future. However if you don't like this behavior, you can skip it by passing the
+`--skip-private` flag:
+
+```
+$ gomodifytags -file demo.go -struct Server -add-tags json --skip-private
+```
+```go
+package main
+
+type Server struct {
+        Name       string `json:"name"`
+        Port       int    `json:"port"`
+        enableLogs bool
+        baseDomain string
+}
+```
+
 ## Removing tags & options
 
 Let's continue with removing tags. We're going to use the following simple package:
