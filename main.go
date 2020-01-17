@@ -605,10 +605,7 @@ func (c *config) offsetSelection(file ast.Node) (int, int, error) {
 
 func isPublicName(name string) bool {
 	for _, c := range name {
-		if unicode.IsUpper(c) {
-			return true
-		}
-		return false
+		return unicode.IsUpper(c)
 	}
 	return false
 }
