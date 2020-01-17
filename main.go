@@ -603,6 +603,16 @@ func (c *config) offsetSelection(file ast.Node) (int, int, error) {
 	return start, end, nil
 }
 
+func isPublicName(name string) bool {
+	for _, c := range name {
+		if unicode.IsUpper(c) {
+			return true
+		}
+		return false
+	}
+	return false
+}
+
 // rewrite rewrites the node for structs between the start and end
 // positions
 func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
@@ -623,22 +633,16 @@ func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 
 			fieldName := ""
 			if len(f.Names) != 0 {
-				if c.skipPrivateFields {
-				publicFieldSearch:
-					for _, field := range f.Names {
-						for _, c := range field.Name {
-							if unicode.IsUpper(c) {
-								fieldName = field.Name
-								break publicFieldSearch
-							}
-							break
-						}
+				for _, field := range f.Names {
+					if !c.skipPrivateFields || isPublicName(field.Name) {
+						fieldName = field.Name
+						break
 					}
-					if fieldName == "" {
-						continue
-					}
-				} else {
-					fieldName = f.Names[0].Name
+				}
+
+				// nothing to process, continue with next line
+				if fieldName == "" {
+					continue
 				}
 			}
 
