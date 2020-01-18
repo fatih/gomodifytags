@@ -316,21 +316,21 @@ func TestRewrite(t *testing.T) {
 		{
 			file: "skip_private",
 			cfg: &config{
-				add:               []string{"json"},
-				output:            "source",
-				structName:        "foo",
-				transform:         "snakecase",
-				skipPrivateFields: true,
+				add:                  []string{"json"},
+				output:               "source",
+				structName:           "foo",
+				transform:            "snakecase",
+				skipUnexportedFields: true,
 			},
 		},
 		{
 			file: "skip_private_multiple_names",
 			cfg: &config{
-				add:               []string{"json"},
-				output:            "source",
-				structName:        "foo",
-				transform:         "snakecase",
-				skipPrivateFields: true,
+				add:                  []string{"json"},
+				output:               "source",
+				structName:           "foo",
+				transform:            "snakecase",
+				skipUnexportedFields: true,
 			},
 		},
 	}
