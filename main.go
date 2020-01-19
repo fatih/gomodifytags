@@ -57,10 +57,10 @@ type config struct {
 	remove        []string
 	removeOptions []string
 
-	add               []string
-	addOptions        []string
-	override          bool
-	skipPrivateFields bool
+	add                  []string
+	addOptions           []string
+	override             bool
+	skipUnexportedFields bool
 
 	transform   string
 	sort        bool
@@ -102,7 +102,7 @@ func realMain() error {
 			"Adds tags for the comma separated list of keys."+
 				"Keys can contain a static value, i,e: json:foo")
 		flagOverride          = flag.Bool("override", false, "Override current tags when adding tags")
-		flagSkipPrivateFields = flag.Bool("skip-private", false, "Skip private fields")
+		flagSkipPrivateFields = flag.Bool("skip-unexported", false, "Skip unexported fields")
 		flagTransform         = flag.String("transform", "snakecase",
 			"Transform adds a transform rule when adding tags."+
 				" Current options: [snakecase, camelcase, lispcase, pascalcase, keep]")
@@ -130,18 +130,18 @@ func realMain() error {
 	}
 
 	cfg := &config{
-		file:              *flagFile,
-		line:              *flagLine,
-		structName:        *flagStruct,
-		offset:            *flagOffset,
-		output:            *flagOutput,
-		write:             *flagWrite,
-		clear:             *flagClearTags,
-		clearOption:       *flagClearOptions,
-		transform:         *flagTransform,
-		sort:              *flagSort,
-		override:          *flagOverride,
-		skipPrivateFields: *flagSkipPrivateFields,
+		file:                 *flagFile,
+		line:                 *flagLine,
+		structName:           *flagStruct,
+		offset:               *flagOffset,
+		output:               *flagOutput,
+		write:                *flagWrite,
+		clear:                *flagClearTags,
+		clearOption:          *flagClearOptions,
+		transform:            *flagTransform,
+		sort:                 *flagSort,
+		override:             *flagOverride,
+		skipUnexportedFields: *flagSkipPrivateFields,
 	}
 
 	if *flagModified {
@@ -631,7 +631,7 @@ func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 			fieldName := ""
 			if len(f.Names) != 0 {
 				for _, field := range f.Names {
-					if !c.skipPrivateFields || isPublicName(field.Name) {
+					if !c.skipUnexportedFields || isPublicName(field.Name) {
 						fieldName = field.Name
 						break
 					}

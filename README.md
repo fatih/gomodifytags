@@ -202,15 +202,15 @@ type Server struct {
 If the key already exists you don't have to use `-add-tags`
 
 
-### Skipping private fields
+### Skipping unexported fields
 
 By default all fields are processed. This main reason for this is to allow
 structs to evolve with time and be ready in case a field is exported in the
 future. However if you don't like this behavior, you can skip it by passing the
-`--skip-private` flag:
+`--skip-unexported` flag:
 
 ```
-$ gomodifytags -file demo.go -struct Server -add-tags json --skip-private
+$ gomodifytags -file demo.go -struct Server -add-tags json --skip-unexported
 ```
 ```go
 package main
