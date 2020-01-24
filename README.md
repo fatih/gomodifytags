@@ -1,4 +1,4 @@
-# gomodifytags 
+# gomodifytags [![](https://github.com/fatih/gomodifytags/workflows/build/badge.svg)](https://github.com/fatih/gomodifytags/actions)
 
 Go tool to modify/update field tags in structs. `gomodifytags` makes it easy to
 update, add or delete the tags in a struct field. You can easily add new tags,
