@@ -95,6 +95,36 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "line_add_override_mixed_column_and_equal",
+			cfg: &config{
+				add:       []string{"json:MyBar:bar:foo=qux"},
+				output:    "source",
+				line:      "4,4",
+				transform: "snakecase",
+				override:  true,
+			},
+		},
+		{
+			file: "line_add_override_multi_equal",
+			cfg: &config{
+				add:       []string{"json:MyBar=bar=foo"},
+				output:    "source",
+				line:      "4,4",
+				transform: "snakecase",
+				override:  true,
+			},
+		},
+		{
+			file: "line_add_override_multi_column",
+			cfg: &config{
+				add:       []string{"json:MyBar:bar:foo"},
+				output:    "source",
+				line:      "4,4",
+				transform: "snakecase",
+				override:  true,
+			},
+		},
+		{
 			file: "line_add_no_override",
 			cfg: &config{
 				add:       []string{"json"},
