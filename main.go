@@ -393,9 +393,12 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 
 	for _, key := range c.add {
 		splitted = strings.Split(key, ":")
-		if len(splitted) == 2 {
+		if len(splitted) >= 2 {
 			key = splitted[0]
 			name = splitted[1]
+			for i := 2; i < len(splitted); i++ {
+				name += ":" + splitted[i]
+			}
 		} else if unknown {
 			// the user didn't pass any value but want to use an unknown
 			// transform. We don't return above in the default as the user
