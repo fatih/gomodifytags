@@ -205,6 +205,16 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "line_add_option_with_equal",
+			cfg: &config{
+				addOptions: []string{"validate=max=32"},
+				add:        []string{"validate"},
+				output:     "source",
+				line:       "4,7",
+				transform:  "snakecase",
+			},
+		},
+		{
 			file: "line_remove",
 			cfg: &config{
 				remove: []string{"json"},
@@ -224,6 +234,14 @@ func TestRewrite(t *testing.T) {
 			file: "line_remove_options",
 			cfg: &config{
 				removeOptions: []string{"json=omitempty", "hcl=omitnested"},
+				output:        "source",
+				line:          "4,7",
+			},
+		},
+		{
+			file: "line_remove_option_with_equal",
+			cfg: &config{
+				removeOptions: []string{"validate=max=32"},
 				output:        "source",
 				line:          "4,7",
 			},

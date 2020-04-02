@@ -311,12 +311,12 @@ func (c *config) removeTagOptions(tags *structtag.Tags) (*structtag.Tags, error)
 	for _, val := range c.removeOptions {
 		// syntax key=option
 		splitted := strings.Split(val, "=")
-		if len(splitted) != 2 {
+		if len(splitted) < 2 {
 			return nil, errors.New("wrong syntax to remove an option. i.e key=option")
 		}
 
 		key := splitted[0]
-		option := splitted[1]
+		option := strings.Join(splitted[1:], "=")
 
 		tags.DeleteOptions(key, option)
 	}
@@ -332,12 +332,12 @@ func (c *config) addTagOptions(tags *structtag.Tags) (*structtag.Tags, error) {
 	for _, val := range c.addOptions {
 		// syntax key=option
 		splitted := strings.Split(val, "=")
-		if len(splitted) != 2 {
+		if len(splitted) < 2 {
 			return nil, errors.New("wrong syntax to add an option. i.e key=option")
 		}
 
 		key := splitted[0]
-		option := splitted[1]
+		option := strings.Join(splitted[1:], "=")
 
 		tags.AddOptions(key, option)
 	}
