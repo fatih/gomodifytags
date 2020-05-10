@@ -391,6 +391,15 @@ func TestRewrite(t *testing.T) {
 				skipUnexportedFields: true,
 			},
 		},
+		{
+			file: "all_structs",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				all:       true,
+				transform: "snakecase",
+			},
+		},
 	}
 
 	for _, ts := range test {
@@ -547,6 +556,13 @@ func TestJSON(t *testing.T) {
 			cfg: &config{
 				add:  []string{"json"},
 				line: "2,54",
+			},
+		},
+		{
+			file: "json_all_structs",
+			cfg: &config{
+				add: []string{"json"},
+				all: true,
 			},
 		},
 	}

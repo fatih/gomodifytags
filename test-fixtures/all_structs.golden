@@ -1,0 +1,22 @@
+package main
+
+type foo struct {
+	bar       string   `json:"bar"`
+	MyExample bool     `json:"my_example"`
+	MyAnother []string `json:"my_another"`
+}
+
+const exampleVar = "foo"
+
+type bar struct {
+	// loose comment
+
+	// home
+	ankara string `json:"ankara"`
+	yeap   bool   `json:"yeap"` // just a boolean
+
+	// great cities
+	cities []string `json:"cities"`
+
+	// seconed loose comment
+}
