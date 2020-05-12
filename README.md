@@ -47,7 +47,7 @@ We have to first pass a file. For that we can use the `-file` flag:
 
 ```sh
 $ gomodifytags -file demo.go
--line, -offset or -struct is not passed
+-line, -offset, -struct or -all is not passed
 ```
 
 What are these? There are three different ways of defining **which** field tags
@@ -62,6 +62,7 @@ to change:
   more granular option see `-line`
 * `-line`: This accepts a string that defines the line or lines of which fields
   should be changed. I.e: `-line 4` or `-line 5,8`
+* `-all`: This is a boolean. The `-all` flag selects all structs of the given file.
 
 Let's continue by using the `-struct` tag:
 
