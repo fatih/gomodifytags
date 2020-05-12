@@ -649,11 +649,6 @@ func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 						break
 					}
 				}
-
-				// nothing to process, continue with next line
-				if fieldName == "" {
-					continue
-				}
 			}
 
 			// anonymous field
@@ -663,7 +658,14 @@ func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 					continue
 				}
 
-				fieldName = ident.Name
+				if !c.skipUnexportedFields {
+					fieldName = ident.Name
+				}
+			}
+
+			// nothing to process, continue with next line
+			if fieldName == "" {
+				continue
 			}
 
 			if f.Tag == nil {

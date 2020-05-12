@@ -1,0 +1,21 @@
+package event
+
+import "time"
+
+type StationEvent interface {
+	DomainEvent
+	isStationEvent()
+}
+
+type stationEvent struct{}
+
+func (evt stationEvent) isStationEvent() {}
+
+type StationCreated struct {
+	stationEvent
+	ConnectorID    int
+	MeterStop      int
+	TransactionID  int32
+	ChargingCardID identifier.ChargingCardID
+	Timestamp      time.Time `json:"timestamp`
+}

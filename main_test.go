@@ -392,6 +392,16 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "skip_embedded",
+			cfg: &config{
+				add:                  []string{"json"},
+				output:               "source",
+				structName:           "StationCreated",
+				transform:            "snakecase",
+				skipUnexportedFields: true,
+			},
+		},
+		{
 			file: "all_structs",
 			cfg: &config{
 				add:       []string{"json"},
