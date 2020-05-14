@@ -50,7 +50,7 @@ $ gomodifytags -file demo.go
 -line, -offset, -struct or -all is not passed
 ```
 
-What are these? There are three different ways of defining **which** field tags
+What are these? There are four different ways of defining **which** field tags
 to change:
 
 * `-struct`: This accepts the struct name. i.e: `-struct Server`. The name
