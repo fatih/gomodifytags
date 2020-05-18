@@ -451,6 +451,25 @@ func collectStructs(node ast.Node) map[token.Pos]*structType {
 		case *ast.ValueSpec:
 			structName = x.Names[0].Name
 			t = x.Type
+		case *ast.Field:
+			if len(x.Names) > 0 {
+				structName = x.Names[0].Name
+			}
+			t = x.Type
+		}
+
+		// if found expression is a "*something" or "[]something",
+		// dereference to check if "something" contains a struct expression
+	loop:
+		for true {
+			switch x := t.(type) {
+			case *ast.StarExpr:
+				t = x.X
+			case *ast.ArrayType:
+				t = x.Elt
+			default:
+				break loop
+			}
 		}
 
 		x, ok := t.(*ast.StructType)
