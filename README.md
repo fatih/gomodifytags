@@ -147,6 +147,8 @@ type Server struct {
 }
 ```
 
+### Transformations
+
 We currently support the following transformations:
 
 * `snakecase`: `"BaseDomain"` -> `"base_domain"`
