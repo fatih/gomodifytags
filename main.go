@@ -107,7 +107,7 @@ func realMain() error {
 		flagSkipPrivateFields = flag.Bool("skip-unexported", false, "Skip unexported fields")
 		flagTransform         = flag.String("transform", "snakecase",
 			"Transform adds a transform rule when adding tags."+
-				" Current options: [snakecase, camelcase, lispcase, pascalcase, keep]")
+				" Current options: [snakecase, camelcase, lispcase, pascalcase, keep, titlecase]")
 		flagSort = flag.Bool("sort", false,
 			"Sort sorts the tags in increasing order according to the key name")
 
@@ -392,6 +392,13 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		name = strings.Join(titled, "")
 	case "keep":
 		name = fieldName
+	case "titlecase":
+		var titled []string
+		for _, s := range splitted {
+			titled = append(titled, strings.Title(s))
+		}
+
+		name = strings.Join(titled, " ")
 	default:
 		unknown = true
 	}

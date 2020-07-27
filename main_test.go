@@ -410,6 +410,24 @@ func TestRewrite(t *testing.T) {
 				transform: "snakecase",
 			},
 		},
+		{
+			file: "line_titlecase_add",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,6",
+				transform: "titlecase",
+			},
+		},
+		{
+			file: "line_titlecase_add_embedded",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,6",
+				transform: "titlecase",
+			},
+		},
 	}
 
 	for _, ts := range test {
