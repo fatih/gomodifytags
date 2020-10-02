@@ -49,6 +49,7 @@ type config struct {
 
 	offset     int
 	structName string
+	fieldName  string
 	line       string
 	start, end int
 	all        bool
@@ -93,6 +94,7 @@ func realMain() error {
 		flagLine = flag.String("line", "",
 			"Line number of the field or a range of line. i.e: 4 or 4,8")
 		flagStruct = flag.String("struct", "", "Struct name to be processed")
+		flagField  = flag.String("field", "", "Struct name to be processed")
 		flagAll    = flag.Bool("all", false, "Select all structs to be processed")
 
 		// tag flags
@@ -135,6 +137,7 @@ func realMain() error {
 		file:                 *flagFile,
 		line:                 *flagLine,
 		structName:           *flagStruct,
+		fieldName:            *flagField,
 		offset:               *flagOffset,
 		all:                  *flagAll,
 		output:               *flagOutput,
@@ -224,6 +227,9 @@ func (c *config) findSelection(node ast.Node) (int, int, error) {
 	} else if c.offset != 0 {
 		return c.offsetSelection(node)
 	} else if c.structName != "" {
+		if c.fieldName != "" {
+			return c.fieldSelection(node)
+		}
 		return c.structSelection(node)
 	} else if c.all {
 		return c.allSelection(node)
@@ -583,6 +589,41 @@ func (c *config) structSelection(file ast.Node) (int, int, error) {
 	return start, end, nil
 }
 
+func (c *config) fieldSelection(file ast.Node) (int, int, error) {
+	structs := collectStructs(file)
+
+	var encStruct *ast.StructType
+	for _, st := range structs {
+		if st.name == c.structName {
+			encStruct = st.node
+		}
+	}
+
+	if encStruct == nil {
+		return 0, 0, errors.New("struct name does not exist")
+	}
+
+	var encField *ast.Field
+	for _, field := range encStruct.Fields.List {
+		fieldName := ""
+		for _, name := range field.Names {
+			fieldName = name.String()
+		}
+		if fieldName == c.fieldName {
+			encField = field
+		}
+	}
+	if encField == nil {
+		return 0, 0, errors.New(fmt.Sprintf("struct `%s` doesn't have field name %s", c.structName, c.fieldName))
+	}
+
+	// fielld selects all lines inside a struct
+	start := c.fset.Position(encField.Pos()).Line
+	end := c.fset.Position(encField.End()).Line
+
+	return start, end, nil
+}
+
 func (c *config) offsetSelection(file ast.Node) (int, int, error) {
 	structs := collectStructs(file)
 
@@ -725,6 +766,10 @@ func (c *config) validate() error {
 		return errors.New("one of " +
 			"[-add-tags, -add-options, -remove-tags, -remove-options, -clear-tags, -clear-options]" +
 			" should be defined")
+	}
+
+	if c.fieldName != "" && c.structName == "" {
+		return errors.New("-field is requiring -struct")
 	}
 
 	return nil

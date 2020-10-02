@@ -410,6 +410,53 @@ func TestRewrite(t *testing.T) {
 				transform: "snakecase",
 			},
 		},
+		{
+			file: "field_add",
+			cfg: &config{
+				add:        []string{"json"},
+				output:     "source",
+				structName: "foo",
+				fieldName:  "bar",
+				transform:  "snakecase",
+			},
+		},
+		{
+			file: "field_add_existing",
+			cfg: &config{
+				add:        []string{"json"},
+				output:     "source",
+				structName: "foo",
+				fieldName:  "bar",
+				transform:  "snakecase",
+			},
+		},
+		{
+			file: "field_clear_tags",
+			cfg: &config{
+				clear:      true,
+				output:     "source",
+				structName: "foo",
+				fieldName:  "bar",
+			},
+		},
+		{
+			file: "field_clear_options",
+			cfg: &config{
+				clearOption: true,
+				output:      "source",
+				structName:  "foo",
+				fieldName:   "bar",
+			},
+		},
+		{
+			file: "field_remove",
+			cfg: &config{
+				remove:     []string{"json"},
+				output:     "source",
+				structName: "foo",
+				fieldName:  "bar",
+			},
+		},
 	}
 
 	for _, ts := range test {
