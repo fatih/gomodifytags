@@ -94,7 +94,7 @@ func realMain() error {
 		flagLine = flag.String("line", "",
 			"Line number of the field or a range of line. i.e: 4 or 4,8")
 		flagStruct = flag.String("struct", "", "Struct name to be processed")
-		flagField  = flag.String("field", "", "Struct name to be processed")
+		flagField  = flag.String("field", "", "Field name to be processed")
 		flagAll    = flag.Bool("all", false, "Select all structs to be processed")
 
 		// tag flags
@@ -227,9 +227,6 @@ func (c *config) findSelection(node ast.Node) (int, int, error) {
 	} else if c.offset != 0 {
 		return c.offsetSelection(node)
 	} else if c.structName != "" {
-		if c.fieldName != "" {
-			return c.fieldSelection(node)
-		}
 		return c.structSelection(node)
 	} else if c.all {
 		return c.allSelection(node)
@@ -582,42 +579,32 @@ func (c *config) structSelection(file ast.Node) (int, int, error) {
 		return 0, 0, errors.New("struct name does not exist")
 	}
 
-	// struct selects all lines inside a struct
+	// if field name has been specified as well, only select the given field
+	if c.fieldName != "" {
+		return c.fieldSelection(encStruct)
+	}
+
 	start := c.fset.Position(encStruct.Pos()).Line
 	end := c.fset.Position(encStruct.End()).Line
 
 	return start, end, nil
 }
 
-func (c *config) fieldSelection(file ast.Node) (int, int, error) {
-	structs := collectStructs(file)
-
-	var encStruct *ast.StructType
-	for _, st := range structs {
-		if st.name == c.structName {
-			encStruct = st.node
-		}
-	}
-
-	if encStruct == nil {
-		return 0, 0, errors.New("struct name does not exist")
-	}
-
+func (c *config) fieldSelection(st *ast.StructType) (int, int, error) {
 	var encField *ast.Field
-	for _, field := range encStruct.Fields.List {
-		fieldName := ""
-		for _, name := range field.Names {
-			fieldName = name.String()
+	for _, f := range st.Fields.List {
+		for _, field := range f.Names {
+			if field.Name == c.fieldName {
+				encField = f
+			}
 		}
-		if fieldName == c.fieldName {
-			encField = field
-		}
-	}
-	if encField == nil {
-		return 0, 0, errors.New(fmt.Sprintf("struct `%s` doesn't have field name %s", c.structName, c.fieldName))
 	}
 
-	// fielld selects all lines inside a struct
+	if encField == nil {
+		return 0, 0, errors.New(fmt.Sprintf("struct %q doesn't have field name %q",
+			c.structName, c.fieldName))
+	}
+
 	start := c.fset.Position(encField.Pos()).Line
 	end := c.fset.Position(encField.End()).Line
 

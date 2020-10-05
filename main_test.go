@@ -421,6 +421,16 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "field_add_same_line",
+			cfg: &config{
+				add:        []string{"json"},
+				output:     "source",
+				structName: "foo",
+				fieldName:  "qux",
+				transform:  "snakecase",
+			},
+		},
+		{
 			file: "field_add_existing",
 			cfg: &config{
 				add:        []string{"json"},

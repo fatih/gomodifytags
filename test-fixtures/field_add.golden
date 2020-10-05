@@ -2,5 +2,6 @@ package foo
 
 type foo struct {
 	bar       string `json:"bar"`
+	qaz, qux  string
 	timestamp time.Time
 }

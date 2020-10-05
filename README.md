@@ -56,6 +56,8 @@ to change:
 * `-struct`: This accepts the struct name. i.e: `-struct Server`. The name
   should be a valid type name. The `-struct` flag selects the whole struct, and
   thus it will operate on all fields.
+* `-field`: This accepts a field name. i.e: `-field Address`. Useful to select
+  a certain field. The name should be a valid field name. The `-struct` flag is required.
 * `-offset`: This accepts a byte offset of the file. Useful for editors to pass
   the position under the cursor. i.e: `-offset 548`. The offset has to be
   inside a valid struct. The `-offset` selects the whole struct. If you need
