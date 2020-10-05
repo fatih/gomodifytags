@@ -49,6 +49,7 @@ type config struct {
 
 	offset     int
 	structName string
+	fieldName  string
 	line       string
 	start, end int
 	all        bool
@@ -93,6 +94,7 @@ func realMain() error {
 		flagLine = flag.String("line", "",
 			"Line number of the field or a range of line. i.e: 4 or 4,8")
 		flagStruct = flag.String("struct", "", "Struct name to be processed")
+		flagField  = flag.String("field", "", "Field name to be processed")
 		flagAll    = flag.Bool("all", false, "Select all structs to be processed")
 
 		// tag flags
@@ -135,6 +137,7 @@ func realMain() error {
 		file:                 *flagFile,
 		line:                 *flagLine,
 		structName:           *flagStruct,
+		fieldName:            *flagField,
 		offset:               *flagOffset,
 		all:                  *flagAll,
 		output:               *flagOutput,
@@ -576,9 +579,34 @@ func (c *config) structSelection(file ast.Node) (int, int, error) {
 		return 0, 0, errors.New("struct name does not exist")
 	}
 
-	// struct selects all lines inside a struct
+	// if field name has been specified as well, only select the given field
+	if c.fieldName != "" {
+		return c.fieldSelection(encStruct)
+	}
+
 	start := c.fset.Position(encStruct.Pos()).Line
 	end := c.fset.Position(encStruct.End()).Line
+
+	return start, end, nil
+}
+
+func (c *config) fieldSelection(st *ast.StructType) (int, int, error) {
+	var encField *ast.Field
+	for _, f := range st.Fields.List {
+		for _, field := range f.Names {
+			if field.Name == c.fieldName {
+				encField = f
+			}
+		}
+	}
+
+	if encField == nil {
+		return 0, 0, errors.New(fmt.Sprintf("struct %q doesn't have field name %q",
+			c.structName, c.fieldName))
+	}
+
+	start := c.fset.Position(encField.Pos()).Line
+	end := c.fset.Position(encField.End()).Line
 
 	return start, end, nil
 }
@@ -725,6 +753,10 @@ func (c *config) validate() error {
 		return errors.New("one of " +
 			"[-add-tags, -add-options, -remove-tags, -remove-options, -clear-tags, -clear-options]" +
 			" should be defined")
+	}
+
+	if c.fieldName != "" && c.structName == "" {
+		return errors.New("-field is requiring -struct")
 	}
 
 	return nil
