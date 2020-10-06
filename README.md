@@ -149,6 +149,50 @@ type Server struct {
 }
 ```
 
+### Prefixing existing and new Tags
+
+Some libraries like [the gorm ORM](https://github.com/go-gorm/gorm) or
+the [gaum SQL query builder](https://github.com/shiftleftsecurity/gaum)
+use a prefix in the tag name (ie `gorm:"column:struct_field"`,
+`gaum:"field_name=struct_field"`) to help ther Scanner/Valuer interact
+with the sql library in go.
+
+You can pass multiple keys to add/remove prefixes, bear in mind that only one 
+prefix will be accepted per key.
+
+```
+$ gomodifytags -file demo.go -struct Server -add-tags gaum,gorm -add-prefix gaum=field_name=,gorm=column: 
+```
+
+```go
+package main
+
+type Server struct {
+	Name        string `gaum:"field_name=name" gorm:"column:name"`
+	Port        int    `gaum:"field_name=port" gorm:"column:port"`
+	EnableLogs  bool   `gaum:"field_name=enableLogs" gorm:"column:enableLogs"`
+	BaseDomain  string `gaum:"field_name=baseDomain" gorm:"column:baseDomain"`
+}
+```
+
+Removing has a similar syntax
+
+```
+$ gomodifytags -file demo.go -struct Server -remove-prefix gaum=field_name=
+```
+
+```go
+package main
+
+type Server struct {
+	Name        string `gaum:"name" gorm:"column:name"`
+	Port        int    `gaum:"port" gorm:"column:port"`
+	EnableLogs  bool   `gaum:"enableLogs" gorm:"column:enableLogs"`
+	BaseDomain  string `gaum:"baseDomain" gorm:"column:baseDomain"`
+}
+```
+
+
 ### Transformations
 
 We currently support the following transformations:
