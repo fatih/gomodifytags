@@ -56,13 +56,15 @@ type config struct {
 
 	fset *token.FileSet
 
-	remove        []string
-	removeOptions []string
+	remove         []string
+	removeOptions  []string
+	removePrefixes []string
 
 	add                  []string
 	addOptions           []string
 	override             bool
 	skipUnexportedFields bool
+	addPrefixes          []string
 
 	transform   string
 	sort        bool
@@ -113,6 +115,12 @@ func realMain() error {
 		flagSort = flag.Bool("sort", false,
 			"Sort sorts the tags in increasing order according to the key name")
 
+		// prefixes
+		flagRemovePrefix = flag.String("remove-prefix", "",
+			"Remove the prefix per given key. i.e: gorm=column:,gaum=\"field_name=\"")
+		flagAddPrefix = flag.String("add-prefix", "",
+			"Add the prefixes per given key. i.e: gorm=column:,gaum=\"field_name=\"")
+
 		// option flags
 		flagRemoveOptions = flag.String("remove-options", "",
 			"Remove the comma separated list of options from the given keys, "+
@@ -160,6 +168,14 @@ func realMain() error {
 
 	if *flagAddOptions != "" {
 		cfg.addOptions = strings.Split(*flagAddOptions, ",")
+	}
+
+	if *flagAddPrefix != "" {
+		cfg.addPrefixes = strings.Split(*flagAddPrefix, ",")
+	}
+
+	if *flagRemovePrefix != "" {
+		cfg.removePrefixes = strings.Split(*flagRemovePrefix, ",")
 	}
 
 	if *flagRemoveTags != "" {
@@ -256,10 +272,20 @@ func (c *config) process(fieldName, tagVal string) (string, error) {
 		return "", err
 	}
 
+	tags, err = c.removeTagPrefixes(tags)
+	if err != nil {
+		return "", err
+	}
+
 	tags = c.clearTags(tags)
 	tags = c.clearOptions(tags)
 
 	tags, err = c.addTags(fieldName, tags)
+	if err != nil {
+		return "", err
+	}
+
+	tags, err = c.addTagPrefixes(tags)
 	if err != nil {
 		return "", err
 	}
@@ -348,6 +374,66 @@ func (c *config) addTagOptions(tags *structtag.Tags) (*structtag.Tags, error) {
 		option := strings.Join(splitted[1:], "=")
 
 		tags.AddOptions(key, option)
+	}
+
+	return tags, nil
+}
+
+func (c *config) removeTagPrefixes(tags *structtag.Tags) (*structtag.Tags, error) {
+	if c.removePrefixes == nil || len(c.removePrefixes) == 0 {
+		return tags, nil
+	}
+
+	for _, val := range c.removePrefixes {
+		// syntax key="prefix"
+		// split N because prefix might contain =
+		splitted := strings.SplitN(val, "=", 2)
+		if len(splitted) < 2 {
+			return nil, errors.New("wrong syntax to add an option. i.e key=prefix")
+		}
+
+		key := splitted[0]
+		prefix := splitted[1]
+
+		if prefix == "" {
+			continue
+		}
+
+		for _, t := range tags.Tags() {
+			if t.Key == key {
+				t.Name = strings.TrimLeft(t.Name, prefix)
+			}
+		}
+	}
+
+	return tags, nil
+}
+
+func (c *config) addTagPrefixes(tags *structtag.Tags) (*structtag.Tags, error) {
+	if c.addPrefixes == nil || len(c.addPrefixes) == 0 {
+		return tags, nil
+	}
+
+	for _, val := range c.addPrefixes {
+		// syntax key="prefix"
+		// split N because prefix might contain =
+		splitted := strings.SplitN(val, "=", 2)
+		if len(splitted) < 2 {
+			return nil, errors.New("wrong syntax to add an option. i.e key=prefix")
+		}
+
+		key := splitted[0]
+		prefix := splitted[1]
+
+		if prefix == "" {
+			continue
+		}
+
+		for _, t := range tags.Tags() {
+			if t.Key == key {
+				t.Name = prefix + t.Name
+			}
+		}
 	}
 
 	return tags, nil
