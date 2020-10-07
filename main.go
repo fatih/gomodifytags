@@ -430,6 +430,22 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 	return tags, nil
 }
 
+// dereferenceExpression takes an expression, and removes all its leading "*" and "[]" operators
+//
+// use case : if found expression is a "*something" or "[]something", we need to check if "something" contains a struct expression
+func dereferenceExpression(expr ast.Expr) ast.Expr {
+	switch x := expr.(type) {
+	case *ast.StarExpr:
+		return dereferenceExpression(x.X)
+
+	case *ast.ArrayType:
+		return dereferenceExpression(x.Elt)
+
+	default:
+		return expr
+	}
+}
+
 // collectStructs collects and maps structType nodes to their positions
 func collectStructs(node ast.Node) map[token.Pos]*structType {
 	structs := make(map[token.Pos]*structType, 0)
@@ -460,17 +476,7 @@ func collectStructs(node ast.Node) map[token.Pos]*structType {
 
 		// if found expression is a "*something" or "[]something",
 		// dereference to check if "something" contains a struct expression
-	loop:
-		for true {
-			switch x := t.(type) {
-			case *ast.StarExpr:
-				t = x.X
-			case *ast.ArrayType:
-				t = x.Elt
-			default:
-				break loop
-			}
-		}
+		t = dereferenceExpression(t)
 
 		x, ok := t.(*ast.StructType)
 		if !ok {
