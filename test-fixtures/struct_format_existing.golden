@@ -2,5 +2,5 @@ package foo
 
 type foo struct {
 	bar       string    `gaum:"field_name=bar"`
-	timestamp time.Time `gaum:"field_name=@timestamp"`
+	timestamp time.Time `gaum:"@timestamp"`
 }

@@ -42,31 +42,23 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
-			file: "struct_prefix",
+			file: "struct_format",
 			cfg: &config{
-				add:         []string{"gaum"},
-				output:      "source",
-				structName:  "foo",
-				transform:   "snakecase",
-				addPrefixes: []string{"gaum=field_name="},
+				add:        []string{"gaum"},
+				output:     "source",
+				structName: "foo",
+				transform:  "snakecase",
+				formatting: "field_name=$value",
 			},
 		},
 		{
-			file: "struct_prefix_existing",
+			file: "struct_format_existing",
 			cfg: &config{
-				add:         []string{"gaum"},
-				output:      "source",
-				structName:  "foo",
-				transform:   "snakecase",
-				addPrefixes: []string{"gaum=field_name="},
-			},
-		},
-		{
-			file: "struct_remove_prefix",
-			cfg: &config{
-				removePrefixes: []string{"gaum=field_name="},
-				output:         "source",
-				structName:     "foo",
+				add:        []string{"gaum"},
+				output:     "source",
+				structName: "foo",
+				transform:  "snakecase",
+				formatting: "field_name=$value",
 			},
 		},
 		{

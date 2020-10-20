@@ -1,8 +1,0 @@
-package foo
-
-type foo struct {
-	bar string `json:"bar,omitempty" hcl:"bar,omitnested" gaum:"bar" gorm:"column:bar"`
-	t   bool   `hcl:"t,omitempty" gaum:"t"`
-	qux string `json:"qux,omitempty" hcl:"qux,keys" gaum:"other_prefix=qux"`
-	yoo string `json:"yoo"`
-}
