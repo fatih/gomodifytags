@@ -156,7 +156,7 @@ By default a struct tag's value is transformed from a struct's field and used di
 However, some third party libraries use tags in a different way and might require to them to have a particular formatting, such as is the case of prefixing them (`field_name=<your_value>`). The `--format` flag allows you to specify a custom format for the tag value to be applied.
 
 ```
-$ gomodifytags -file demo.go -struct Server -add-tags gaum -format "field_name=$value" 
+$ gomodifytags -file demo.go -struct Server -add-tags gaum -format "field_name=$field" 
 ```
 
 ```go
