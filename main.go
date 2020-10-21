@@ -66,7 +66,7 @@ type config struct {
 
 	transform   string
 	sort        bool
-	formatting  string
+	valueFormat string
 	clear       bool
 	clearOption bool
 }
@@ -151,7 +151,7 @@ func realMain() error {
 		clearOption:          *flagClearOptions,
 		transform:            *flagTransform,
 		sort:                 *flagSort,
-		formatting:           *flagFormatting,
+		valueFormat:          *flagFormatting,
 		override:             *flagOverride,
 		skipUnexportedFields: *flagSkipPrivateFields,
 	}
@@ -405,8 +405,8 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		unknown = true
 	}
 
-	if c.formatting != "" {
-		name = strings.ReplaceAll(c.formatting, "$value", name)
+	if c.valueFormat != "" {
+		name = strings.ReplaceAll(c.valueFormat, "$value", name)
 	}
 
 	for _, key := range c.add {

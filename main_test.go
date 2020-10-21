@@ -44,21 +44,21 @@ func TestRewrite(t *testing.T) {
 		{
 			file: "struct_format",
 			cfg: &config{
-				add:        []string{"gaum"},
-				output:     "source",
-				structName: "foo",
-				transform:  "snakecase",
-				formatting: "field_name=$value",
+				add:         []string{"gaum"},
+				output:      "source",
+				structName:  "foo",
+				transform:   "snakecase",
+				valueFormat: "field_name=$value",
 			},
 		},
 		{
 			file: "struct_format_existing",
 			cfg: &config{
-				add:        []string{"gaum"},
-				output:     "source",
-				structName: "foo",
-				transform:  "snakecase",
-				formatting: "field_name=$value",
+				add:         []string{"gaum"},
+				output:      "source",
+				structName:  "foo",
+				transform:   "snakecase",
+				valueFormat: "field_name=$value",
 			},
 		},
 		{
