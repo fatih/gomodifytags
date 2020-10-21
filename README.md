@@ -149,7 +149,7 @@ type Server struct {
 }
 ```
 
-### Formatting tags
+### Formatting tag values
 
 By default a struct tag's value is transformed from a struct's field and used directly. As an example for the field `Server string`, we generate a tag in the form: `json:"server"` (assuming `-add-tags=json` is used).
 
