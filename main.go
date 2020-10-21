@@ -116,7 +116,7 @@ func realMain() error {
 
 		// formatting
 		flagFormatting = flag.String("format", "",
-			"Format the given key. i.e: \"column:$value\", \"field_name=$value\"")
+			"Format the given tag's value. i.e: \"column:$value\", \"field_name=$value\"")
 
 		// option flags
 		flagRemoveOptions = flag.String("remove-options", "",
