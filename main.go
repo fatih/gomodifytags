@@ -116,7 +116,7 @@ func realMain() error {
 
 		// formatting
 		flagFormatting = flag.String("format", "",
-			"Format the given tag's value. i.e: \"column:$value\", \"field_name=$value\"")
+			"Format the given tag's value. i.e: \"column:$field\", \"field_name=$field\"")
 
 		// option flags
 		flagRemoveOptions = flag.String("remove-options", "",
@@ -406,7 +406,7 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 	}
 
 	if c.valueFormat != "" {
-		name = strings.ReplaceAll(c.valueFormat, "$value", name)
+		name = strings.ReplaceAll(c.valueFormat, "$field", name)
 	}
 
 	for _, key := range c.add {
