@@ -115,7 +115,7 @@ func realMain() error {
 			"Sort sorts the tags in increasing order according to the key name")
 
 		// formatting
-		flagFormatting = flag.String("format", "",
+		flagFormatting = flag.String("template", "",
 			"Format the given tag's value. i.e: \"column:$field\", \"field_name=$field\"")
 
 		// option flags
