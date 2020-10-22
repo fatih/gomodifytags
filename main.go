@@ -66,6 +66,7 @@ type config struct {
 
 	transform   string
 	sort        bool
+	valueFormat string
 	clear       bool
 	clearOption bool
 }
@@ -113,6 +114,10 @@ func realMain() error {
 		flagSort = flag.Bool("sort", false,
 			"Sort sorts the tags in increasing order according to the key name")
 
+		// formatting
+		flagFormatting = flag.String("format", "",
+			"Format the given tag's value. i.e: \"column:$field\", \"field_name=$field\"")
+
 		// option flags
 		flagRemoveOptions = flag.String("remove-options", "",
 			"Remove the comma separated list of options from the given keys, "+
@@ -146,6 +151,7 @@ func realMain() error {
 		clearOption:          *flagClearOptions,
 		transform:            *flagTransform,
 		sort:                 *flagSort,
+		valueFormat:          *flagFormatting,
 		override:             *flagOverride,
 		skipUnexportedFields: *flagSkipPrivateFields,
 	}
@@ -397,6 +403,10 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		name = fieldName
 	default:
 		unknown = true
+	}
+
+	if c.valueFormat != "" {
+		name = strings.ReplaceAll(c.valueFormat, "$field", name)
 	}
 
 	for _, key := range c.add {
