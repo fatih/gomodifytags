@@ -151,9 +151,14 @@ type Server struct {
 
 ### Formatting tag values
 
-By default a struct tag's value is transformed from a struct's field and used directly. As an example for the field `Server string`, we generate a tag in the form: `json:"server"` (assuming `-add-tags=json` is used).
+By default a struct tag's value is transformed from a struct's field and used
+directly. As an example for the field `Server string`, we generate a tag in the
+form: `json:"server"` (assuming `-add-tags=json` is used).
 
-However, some third party libraries use tags in a different way and might require to them to have a particular formatting, such as is the case of prefixing them (`field_name=<your_value>`). The `--format` flag allows you to specify a custom format for the tag value to be applied.
+However, some third party libraries use tags in a different way and might
+require to them to have a particular formatting, such as is the case of
+prefixing them (`field_name=<your_value>`). The `--format` flag allows you to
+specify a custom format for the tag value to be applied.
 
 ```
 $ gomodifytags -file demo.go -struct Server -add-tags gaum -format "field_name=$field" 
@@ -169,6 +174,9 @@ type Server struct {
 	BaseDomain  string `gaum:"field_name=baseDomain"`
 }
 ```
+
+The `$field` is a special keyword that is replaced by the struct tag's value
+**after** the [transformation](https://github.com/fatih/gomodifytags#transformations). 
 
 ### Transformations
 
@@ -507,7 +515,7 @@ type Server struct {
 ```
 
 If we add the `xml` tag and tell to output the format in json  with the
-`-format` flag, the following will be outputed:
+`-format` flag, the following will be printed:
 
 ```
 $ gomodifytags -file demo.go -struct Server -add-tags xml -format json
@@ -541,7 +549,7 @@ type output struct {
 }
 ```
 
-The `start` and `end` specifices the positions in the file the `lines` will
+The `start` and `end` specifies the positions in the file the `lines` will
 apply.  With this information, you can replace the editor buffer by iterating
 over the `lines` and set it for the given range. An example how it's done in
 vim-go in Vimscript is:
@@ -556,9 +564,9 @@ endfor
 
 ### Unsaved files
 
-Editors can supply `gomodifytags` with the contents of unsaved buffers by
-using the `-modified` flag and writing an archive to stdin.  
-Files in the archive will be preferred over those on disk.
+Editors can supply `gomodifytags` with the contents of unsaved buffers by using
+the `-modified` flag and writing an archive to stdin.  Files in the archive
+will be preferred over those on disk.
 
 Each archive entry consists of:
  - the file name, followed by a newline

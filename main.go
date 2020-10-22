@@ -106,9 +106,9 @@ func realMain() error {
 		flagAddTags = flag.String("add-tags", "",
 			"Adds tags for the comma separated list of keys."+
 				"Keys can contain a static value, i,e: json:foo")
-		flagOverride          = flag.Bool("override", false, "Override current tags when adding tags")
-		flagSkipPrivateFields = flag.Bool("skip-unexported", false, "Skip unexported fields")
-		flagTransform         = flag.String("transform", "snakecase",
+		flagOverride             = flag.Bool("override", false, "Override current tags when adding tags")
+		flagSkipUnexportedFields = flag.Bool("skip-unexported", false, "Skip unexported fields")
+		flagTransform            = flag.String("transform", "snakecase",
 			"Transform adds a transform rule when adding tags."+
 				" Current options: [snakecase, camelcase, lispcase, pascalcase, keep]")
 		flagSort = flag.Bool("sort", false,
@@ -153,7 +153,7 @@ func realMain() error {
 		sort:                 *flagSort,
 		valueFormat:          *flagFormatting,
 		override:             *flagOverride,
-		skipUnexportedFields: *flagSkipPrivateFields,
+		skipUnexportedFields: *flagSkipUnexportedFields,
 	}
 
 	if *flagModified {
