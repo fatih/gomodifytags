@@ -168,6 +168,7 @@ func parseConfig(args []string) (*config, error) {
 			"Add the options per given key. i.e: json=omitempty,hcl=squash")
 	)
 
+	// this fails if there are flags re-defined with the same name.
 	if err := flag.CommandLine.Parse(args); err != nil {
 		return nil, err
 	}

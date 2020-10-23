@@ -867,8 +867,9 @@ func TestParseConfig(t *testing.T) {
 	// don't output help message during the test
 	flag.CommandLine.SetOutput(ioutil.Discard)
 
-	// this makes sure we don't add up adding duplicate flag names and that
-	// flag parsing works without any issues
+	// The flag.CommandLine.Parse() call fails if there are flags re-defined
+	// with the same name. If there are duplicates, parseConfig() will return
+	// an error.
 	_, err := parseConfig([]string{"test"})
 	if err != nil {
 		t.Fatal(err)
