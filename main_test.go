@@ -862,3 +862,15 @@ func TestParseLines(t *testing.T) {
 		})
 	}
 }
+
+func TestParseConfig(t *testing.T) {
+	// don't output help message during the test
+	flag.CommandLine.SetOutput(ioutil.Discard)
+
+	// this makes sure we don't add up adding duplicate flag names and that
+	// flag parsing works without any issues
+	_, err := parseConfig([]string{"test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
