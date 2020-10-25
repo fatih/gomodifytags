@@ -79,6 +79,46 @@ func main() {
 }
 
 func realMain() error {
+	cfg, err := parseConfig(os.Args[1:])
+	if err != nil {
+		if err == flag.ErrHelp {
+			return nil
+		}
+		return err
+	}
+
+	err = cfg.validate()
+	if err != nil {
+		return err
+	}
+
+	node, err := cfg.parse()
+	if err != nil {
+		return err
+	}
+
+	start, end, err := cfg.findSelection(node)
+	if err != nil {
+		return err
+	}
+
+	rewrittenNode, errs := cfg.rewrite(node, start, end)
+	if errs != nil {
+		if _, ok := errs.(*rewriteErrors); !ok {
+			return errs
+		}
+	}
+
+	out, err := cfg.format(rewrittenNode, errs)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(out)
+	return nil
+}
+
+func parseConfig(args []string) (*config, error) {
 	var (
 		// file flags
 		flagFile  = flag.String("file", "", "Filename to be parsed")
@@ -128,14 +168,15 @@ func realMain() error {
 			"Add the options per given key. i.e: json=omitempty,hcl=squash")
 	)
 
-	// don't output full help information if something goes wrong
-	flag.Usage = func() {}
-	flag.Parse()
+	// this fails if there are flags re-defined with the same name.
+	if err := flag.CommandLine.Parse(args); err != nil {
+		return nil, err
+	}
 
 	if flag.NFlag() == 0 {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
 		flag.PrintDefaults()
-		return nil
+		return nil, flag.ErrHelp
 	}
 
 	cfg := &config{
@@ -176,35 +217,8 @@ func realMain() error {
 		cfg.removeOptions = strings.Split(*flagRemoveOptions, ",")
 	}
 
-	err := cfg.validate()
-	if err != nil {
-		return err
-	}
+	return cfg, nil
 
-	node, err := cfg.parse()
-	if err != nil {
-		return err
-	}
-
-	start, end, err := cfg.findSelection(node)
-	if err != nil {
-		return err
-	}
-
-	rewrittenNode, errs := cfg.rewrite(node, start, end)
-	if errs != nil {
-		if _, ok := errs.(*rewriteErrors); !ok {
-			return errs
-		}
-	}
-
-	out, err := cfg.format(rewrittenNode, errs)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(out)
-	return nil
 }
 
 func (c *config) parse() (ast.Node, error) {
