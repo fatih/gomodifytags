@@ -487,6 +487,33 @@ func TestRewrite(t *testing.T) {
 				fieldName:  "bar",
 			},
 		},
+		{
+			file: "offset_anonymous_struct",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				offset:    45,
+				transform: "camelcase",
+			},
+		},
+		{
+			file: "offset_star_struct",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				offset:    35,
+				transform: "camelcase",
+			},
+		},
+		{
+			file: "offset_array_struct",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				offset:    35,
+				transform: "camelcase",
+			},
+		},
 	}
 
 	for _, ts := range test {

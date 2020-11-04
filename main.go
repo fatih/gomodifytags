@@ -457,6 +457,7 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 // collectStructs collects and maps structType nodes to their positions
 func collectStructs(node ast.Node) map[token.Pos]*structType {
 	structs := make(map[token.Pos]*structType, 0)
+
 	collectStructs := func(n ast.Node) bool {
 		var t ast.Expr
 		var structName string
@@ -475,7 +476,29 @@ func collectStructs(node ast.Node) map[token.Pos]*structType {
 		case *ast.ValueSpec:
 			structName = x.Names[0].Name
 			t = x.Type
+		case *ast.Field:
+			// this case also catches struct fields and the structName
+			// therefore might contain the field name (which is wrong)
+			// because `x.Type` in this case is not a *ast.StructType.
+			//
+			// We're OK with it, because, in our case *ast.Field represents
+			// a parameter declaration, i.e:
+			//
+			//   func test(arg struct {
+			//   	Field int
+			//   }) {
+			//   }
+			//
+			// and hence the struct name will be `arg`.
+			if len(x.Names) != 0 {
+				structName = x.Names[0].Name
+			}
+			t = x.Type
 		}
+
+		// if expression is in form "*T" or "[]T", dereference to check if "T"
+		// contains a struct expression
+		t = deref(t)
 
 		x, ok := t.(*ast.StructType)
 		if !ok {
@@ -488,6 +511,7 @@ func collectStructs(node ast.Node) map[token.Pos]*structType {
 		}
 		return true
 	}
+
 	ast.Inspect(node, collectStructs)
 	return structs
 }
@@ -865,4 +889,17 @@ func split(line string) (int, error) {
 	}
 
 	return 0, fmt.Errorf("couldn't parse line: '%s'", line)
+}
+
+// deref takes an expression, and removes all its leading "*" and "[]"
+// operator. Uuse case : if found expression is a "*t" or "[]t", we need to
+// check if "t" contains a struct expression.
+func deref(x ast.Expr) ast.Expr {
+	switch t := x.(type) {
+	case *ast.StarExpr:
+		return deref(t.X)
+	case *ast.ArrayType:
+		return deref(t.Elt)
+	}
+	return x
 }
