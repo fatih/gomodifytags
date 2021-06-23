@@ -156,7 +156,7 @@ func parseConfig(args []string) (*config, error) {
 
 		// formatting
 		flagFormatting = flag.String("template", "",
-			"Format the given tag's value. i.e: \"column:$field\", \"field_name=$field\"")
+			"Format the given tag's value. i.e: \"column:{field}\", \"field_name={field}\"")
 
 		// option flags
 		flagRemoveOptions = flag.String("remove-options", "",
@@ -420,7 +420,7 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 	}
 
 	if c.valueFormat != "" {
-		name = strings.ReplaceAll(c.valueFormat, "$field", name)
+		name = strings.ReplaceAll(c.valueFormat, "{field}", name)
 	}
 
 	for _, key := range c.add {

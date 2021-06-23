@@ -48,7 +48,7 @@ func TestRewrite(t *testing.T) {
 				output:      "source",
 				structName:  "foo",
 				transform:   "snakecase",
-				valueFormat: "field_name=$field",
+				valueFormat: "field_name={field}",
 			},
 		},
 		{
@@ -58,7 +58,7 @@ func TestRewrite(t *testing.T) {
 				output:      "source",
 				structName:  "foo",
 				transform:   "snakecase",
-				valueFormat: "field_name=$field",
+				valueFormat: "field_name={field}",
 			},
 		},
 		{
