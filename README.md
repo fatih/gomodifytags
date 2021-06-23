@@ -616,4 +616,4 @@ Transform = "camelcase"
 - the `Add` will add external tags to flag tag.
 - the `TemplateMap` will add template for each tag,overwrite the flag template.
 
-https://user-images.githubusercontent.com/5291739/123039779-53382900-d425-11eb-9ae9-daa84f00bb23.gif
+![gomodifytags](https://user-images.githubusercontent.com/5291739/123039779-53382900-d425-11eb-9ae9-daa84f00bb23.gif)
