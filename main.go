@@ -15,11 +15,13 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode"
 
+	"github.com/BurntSushi/toml"
 	"github.com/fatih/camelcase"
 	"github.com/fatih/structtag"
 	"golang.org/x/tools/go/buildutil"
@@ -69,6 +71,14 @@ type config struct {
 	valueFormat string
 	clear       bool
 	clearOption bool
+	templateMap map[string]string // give different template for each tag
+}
+
+// use toml to config the gomodifytags
+type tomlConfig struct {
+	Add         []string // add external tags
+	Transform   string
+	TemplateMap map[string]string // give different template for each tag
 }
 
 func main() {
@@ -119,6 +129,16 @@ func realMain() error {
 }
 
 func parseConfig(args []string) (*config, error) {
+	var tomlCfg tomlConfig
+
+	ex, err := os.Executable()
+	if err == nil {
+		exPath := filepath.Dir(ex)
+		if _, err := toml.DecodeFile(filepath.Join(exPath, "gomodifytags.toml"), &tomlCfg); err != nil {
+			panic(err)
+		}
+	}
+
 	var (
 		// file flags
 		flagFile  = flag.String("file", "", "Filename to be parsed")
@@ -197,12 +217,35 @@ func parseConfig(args []string) (*config, error) {
 		skipUnexportedFields: *flagSkipUnexportedFields,
 	}
 
+	cfg.templateMap = tomlCfg.TemplateMap
+	if cfg.templateMap == nil {
+		cfg.templateMap = make(map[string]string)
+	}
+	if tomlCfg.Transform != "" {
+		cfg.transform = tomlCfg.Transform
+	}
+
 	if *flagModified {
 		cfg.modified = os.Stdin
 	}
 
+	// add extenal tags config
 	if *flagAddTags != "" {
-		cfg.add = strings.Split(*flagAddTags, ",")
+		inputAdds := strings.Split(*flagAddTags, ",")
+
+		// remove duplicate tag
+		addMap := make(map[string]struct{})
+		for _, add := range inputAdds {
+			addMap[add] = struct{}{}
+		}
+		for _, add := range tomlCfg.Add {
+			addMap[add] = struct{}{}
+		}
+
+		for add, _ := range addMap {
+			cfg.add = append(cfg.add, add)
+		}
+
 	}
 
 	if *flagAddOptions != "" {
@@ -433,6 +476,10 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 			// transform. We don't return above in the default as the user
 			// might pass a value
 			return nil, fmt.Errorf("unknown transform option %q", c.transform)
+		}
+
+		if valueFormat, ok := c.templateMap[key]; ok {
+			name = strings.ReplaceAll(valueFormat, "$field", name)
 		}
 
 		tag, err := tags.Get(key)
