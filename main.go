@@ -135,7 +135,7 @@ func parseConfig(args []string) (*config, error) {
 	if err == nil {
 		exPath := filepath.Dir(ex)
 		if _, err := toml.DecodeFile(filepath.Join(exPath, "gomodifytags.toml"), &tomlCfg); err != nil {
-			panic(err)
+			fmt.Println(err)
 		}
 	}
 
@@ -462,11 +462,10 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		unknown = true
 	}
 
-	if c.valueFormat != "" {
-		name = strings.ReplaceAll(c.valueFormat, "$field", name)
-	}
+	tagName := name
 
 	for _, key := range c.add {
+
 		splitted = strings.SplitN(key, ":", 2)
 		if len(splitted) >= 2 {
 			key = splitted[0]
@@ -477,9 +476,13 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 			// might pass a value
 			return nil, fmt.Errorf("unknown transform option %q", c.transform)
 		}
-
+		// toml template  config ,overwrite the flag template
 		if valueFormat, ok := c.templateMap[key]; ok {
-			name = strings.ReplaceAll(valueFormat, "$field", name)
+			tagName = strings.ReplaceAll(valueFormat, "$field", name)
+		} else if c.valueFormat != "" {
+			tagName = strings.ReplaceAll(c.valueFormat, "$field", name)
+		} else {
+			tagName = name
 		}
 
 		tag, err := tags.Get(key)
@@ -487,10 +490,10 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 			// tag doesn't exist, create a new one
 			tag = &structtag.Tag{
 				Key:  key,
-				Name: name,
+				Name: tagName,
 			}
 		} else if c.override {
-			tag.Name = name
+			tag.Name = tagName
 		}
 
 		if err := tags.Set(tag); err != nil {
