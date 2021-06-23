@@ -600,3 +600,18 @@ GO111MODULE=on go test -v -mod=vendor
 ```
 
 If everything works fine, feel free to open a pull request with your changes.
+
+
+# Use external config file
+
+when we use  editors like vscode  to add tags, the vscode can only add json tags for us, there is no way to change the config, so I add a toml config support.
+we just need add a `gomodifytags.toml` in the same directory of gomodifytags. in linux we can use `whereis gomodifytags` to get the directory.
+```toml
+Add = ["form", "gorm"]
+Transform = "camelcase"
+[TemplateMap]
+  gorm = "column:$field"
+```
+
+- the `Add` will add external tags to user tag.
+- the `TemplateMap` will add template for each tag
