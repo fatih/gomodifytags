@@ -229,19 +229,17 @@ func parseConfig(args []string) (*config, error) {
 
 	// add extenal tags config
 	if *flagAddTags != "" {
-		inputAdds := strings.Split(*flagAddTags, ",")
+		cfg.add = strings.Split(*flagAddTags, ",")
 
 		// remove duplicate tag
 		addMap := make(map[string]struct{})
-		for _, add := range inputAdds {
+		for _, add := range cfg.add {
 			addMap[add] = struct{}{}
 		}
 		for _, add := range tomlCfg.Add {
-			addMap[add] = struct{}{}
-		}
-
-		for add, _ := range addMap {
-			cfg.add = append(cfg.add, add)
+			if _, ok := addMap[add]; !ok {
+				cfg.add = append(cfg.add, add)
+			}
 		}
 
 	}
