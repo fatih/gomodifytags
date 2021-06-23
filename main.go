@@ -134,9 +134,7 @@ func parseConfig(args []string) (*config, error) {
 	ex, err := os.Executable()
 	if err == nil {
 		exPath := filepath.Dir(ex)
-		if _, err := toml.DecodeFile(filepath.Join(exPath, "gomodifytags.toml"), &tomlCfg); err != nil {
-			fmt.Println(err)
-		}
+		toml.DecodeFile(filepath.Join(exPath, "gomodifytags.toml"), &tomlCfg)
 	}
 
 	var (
