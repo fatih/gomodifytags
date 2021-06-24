@@ -66,19 +66,21 @@ type config struct {
 	override             bool
 	skipUnexportedFields bool
 
-	transform   string
-	sort        bool
-	valueFormat string
-	clear       bool
-	clearOption bool
-	templateMap map[string]string // give different template for each tag
+	transform    string
+	sort         bool
+	valueFormat  string
+	clear        bool
+	clearOption  bool
+	templateMap  map[string]string // give different template for each tag
+	transformMap map[string]string // give different transform for each tag
 }
 
 // use toml to config the gomodifytags
 type tomlConfig struct {
-	Add         []string // add external tags
-	Transform   string
-	TemplateMap map[string]string // give different template for each tag
+	Add          []string // add external tags
+	Transform    string
+	TemplateMap  map[string]string // give different template for each tag
+	TransformMap map[string]string // give different transform for each tag
 }
 
 func main() {
@@ -221,6 +223,10 @@ func parseConfig(args []string) (*config, error) {
 	}
 	if tomlCfg.Transform != "" {
 		cfg.transform = tomlCfg.Transform
+	}
+	cfg.transformMap = tomlCfg.TransformMap
+	if cfg.transformMap == nil {
+		cfg.transformMap = make(map[string]string)
 	}
 
 	if *flagModified {
@@ -412,16 +418,12 @@ func (c *config) addTagOptions(tags *structtag.Tags) (*structtag.Tags, error) {
 	return tags, nil
 }
 
-func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tags, error) {
-	if c.add == nil || len(c.add) == 0 {
-		return tags, nil
-	}
+func convertFieldName(transform, fieldName string) (name string, unknown bool) {
+	name = ""
+	unknown = false
 
 	splitted := camelcase.Split(fieldName)
-	name := ""
-
-	unknown := false
-	switch c.transform {
+	switch transform {
 	case "snakecase":
 		var lowerSplitted []string
 		for _, s := range splitted {
@@ -458,11 +460,27 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		unknown = true
 	}
 
+	return
+}
+
+func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tags, error) {
+	if c.add == nil || len(c.add) == 0 {
+		return tags, nil
+	}
+
+	name := fieldName
 	tagName := name
+	unknown := false
 
 	for _, key := range c.add {
 
-		splitted = strings.SplitN(key, ":", 2)
+		if transform, ok := c.transformMap[key]; ok {
+			name, unknown = convertFieldName(transform, fieldName)
+		} else {
+			name, unknown = convertFieldName(c.transform, fieldName)
+		}
+
+		splitted := strings.SplitN(key, ":", 2)
 		if len(splitted) >= 2 {
 			key = splitted[0]
 			name = strings.Join(splitted[1:], "")
