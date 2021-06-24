@@ -15,11 +15,13 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode"
 
+	"github.com/BurntSushi/toml"
 	"github.com/fatih/camelcase"
 	"github.com/fatih/structtag"
 	"golang.org/x/tools/go/buildutil"
@@ -64,11 +66,21 @@ type config struct {
 	override             bool
 	skipUnexportedFields bool
 
-	transform   string
-	sort        bool
-	valueFormat string
-	clear       bool
-	clearOption bool
+	transform    string
+	sort         bool
+	valueFormat  string
+	clear        bool
+	clearOption  bool
+	templateMap  map[string]string // give different template for each tag
+	transformMap map[string]string // give different transform for each tag
+}
+
+// use toml to config the gomodifytags
+type tomlConfig struct {
+	Add          []string // add external tags
+	Transform    string
+	TemplateMap  map[string]string // give different template for each tag
+	TransformMap map[string]string // give different transform for each tag
 }
 
 func main() {
@@ -119,6 +131,14 @@ func realMain() error {
 }
 
 func parseConfig(args []string) (*config, error) {
+	var tomlCfg tomlConfig
+
+	ex, err := os.Executable()
+	if err == nil {
+		exPath := filepath.Dir(ex)
+		toml.DecodeFile(filepath.Join(exPath, "gomodifytags.toml"), &tomlCfg)
+	}
+
 	var (
 		// file flags
 		flagFile  = flag.String("file", "", "Filename to be parsed")
@@ -197,12 +217,37 @@ func parseConfig(args []string) (*config, error) {
 		skipUnexportedFields: *flagSkipUnexportedFields,
 	}
 
+	cfg.templateMap = tomlCfg.TemplateMap
+	if cfg.templateMap == nil {
+		cfg.templateMap = make(map[string]string)
+	}
+	if tomlCfg.Transform != "" {
+		cfg.transform = tomlCfg.Transform
+	}
+	cfg.transformMap = tomlCfg.TransformMap
+	if cfg.transformMap == nil {
+		cfg.transformMap = make(map[string]string)
+	}
+
 	if *flagModified {
 		cfg.modified = os.Stdin
 	}
 
+	// add extenal tags config
 	if *flagAddTags != "" {
 		cfg.add = strings.Split(*flagAddTags, ",")
+
+		// remove duplicate tag
+		addMap := make(map[string]struct{})
+		for _, add := range cfg.add {
+			addMap[add] = struct{}{}
+		}
+		for _, add := range tomlCfg.Add {
+			if _, ok := addMap[add]; !ok {
+				cfg.add = append(cfg.add, add)
+			}
+		}
+
 	}
 
 	if *flagAddOptions != "" {
@@ -373,16 +418,12 @@ func (c *config) addTagOptions(tags *structtag.Tags) (*structtag.Tags, error) {
 	return tags, nil
 }
 
-func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tags, error) {
-	if c.add == nil || len(c.add) == 0 {
-		return tags, nil
-	}
+func convertFieldName(transform, fieldName string) (name string, unknown bool) {
+	name = ""
+	unknown = false
 
 	splitted := camelcase.Split(fieldName)
-	name := ""
-
-	unknown := false
-	switch c.transform {
+	switch transform {
 	case "snakecase":
 		var lowerSplitted []string
 		for _, s := range splitted {
@@ -419,12 +460,27 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		unknown = true
 	}
 
-	if c.valueFormat != "" {
-		name = strings.ReplaceAll(c.valueFormat, "$field", name)
+	return
+}
+
+func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tags, error) {
+	if c.add == nil || len(c.add) == 0 {
+		return tags, nil
 	}
 
+	name := fieldName
+	tagName := name
+	unknown := false
+
 	for _, key := range c.add {
-		splitted = strings.SplitN(key, ":", 2)
+
+		if transform, ok := c.transformMap[key]; ok {
+			name, unknown = convertFieldName(transform, fieldName)
+		} else {
+			name, unknown = convertFieldName(c.transform, fieldName)
+		}
+
+		splitted := strings.SplitN(key, ":", 2)
 		if len(splitted) >= 2 {
 			key = splitted[0]
 			name = strings.Join(splitted[1:], "")
@@ -434,16 +490,24 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 			// might pass a value
 			return nil, fmt.Errorf("unknown transform option %q", c.transform)
 		}
+		// toml template  config ,overwrite the flag template
+		if valueFormat, ok := c.templateMap[key]; ok {
+			tagName = strings.ReplaceAll(valueFormat, "$field", name)
+		} else if c.valueFormat != "" {
+			tagName = strings.ReplaceAll(c.valueFormat, "$field", name)
+		} else {
+			tagName = name
+		}
 
 		tag, err := tags.Get(key)
 		if err != nil {
 			// tag doesn't exist, create a new one
 			tag = &structtag.Tag{
 				Key:  key,
-				Name: name,
+				Name: tagName,
 			}
 		} else if c.override {
-			tag.Name = name
+			tag.Name = tagName
 		}
 
 		if err := tags.Set(tag); err != nil {
