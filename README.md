@@ -379,7 +379,7 @@ type Server struct {
 }
 ```
 
-Lastly, to remove all options without explicitly defining the keys and names,
+To remove all options without explicitly defining the keys and names,
 we can use the `-clear-options` flag. The following example will remove all
 options for the given struct:
 
@@ -399,6 +399,16 @@ type Server struct {
 		Password string `json:"password" xml:"password"`
 	} `json:"credentials" xml:"credentials"`
 }
+```
+
+**Environment Variables**
+
+In order to print an `.env` file template, use the `-print-envs` flag to default
+to `./.env` or add `-envs-filename /path/to/file` and it will create a new file
+with the path and name specified.
+
+```bash
+$ gomodifytags -file test-fixtures/all_structs.input -all -add-tags conf -template 'env:$field,noprint' -transform envcase -envs-filename 'path/to/.env' -print-envs
 ```
 
 ## Line based modification

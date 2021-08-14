@@ -69,6 +69,9 @@ type config struct {
 	valueFormat string
 	clear       bool
 	clearOption bool
+
+	printEnvFile     bool
+	printEnvFileName string
 }
 
 func main() {
@@ -112,6 +115,12 @@ func run() error {
 	out, err := cfg.format(rewrittenNode, errs)
 	if err != nil {
 		return err
+	}
+
+	if cfg.printEnvFile {
+		if err := cfg.printEnvs(out); err != nil {
+			return err
+		}
 	}
 
 	fmt.Println(out)
@@ -166,6 +175,12 @@ func parseConfig(args []string) (*config, error) {
 			"Clear all tag options")
 		flagAddOptions = flag.String("add-options", "",
 			"Add the options per given key. i.e: json=omitempty,hcl=squash")
+		
+		// print envfile template
+		flagPrintEnvFile = flag.Bool("print-envs", false,
+			"Prints the environmental variables in default file '.env' for use as an env template")
+		flagPrintEnvFileName = flag.String("envs-filename", ".env", 
+			"Filename where this should save the environmental variable template -- note will truncate file")
 	)
 
 	// this fails if there are flags re-defined with the same name.
@@ -195,6 +210,8 @@ func parseConfig(args []string) (*config, error) {
 		valueFormat:          *flagFormatting,
 		override:             *flagOverride,
 		skipUnexportedFields: *flagSkipUnexportedFields,
+		printEnvFile:         *flagPrintEnvFile,
+		printEnvFileName:     *flagPrintEnvFileName,
 	}
 
 	if *flagModified {
@@ -255,7 +272,7 @@ func (c *config) findSelection(node ast.Node) (int, int, error) {
 	}
 }
 
-func (c *config) process(fieldName, tagVal string) (string, error) {
+func (c *config) process(structName, fieldName, tagVal string) (string, error) {
 	var tag string
 	if tagVal != "" {
 		var err error
@@ -279,7 +296,7 @@ func (c *config) process(fieldName, tagVal string) (string, error) {
 	tags = c.clearTags(tags)
 	tags = c.clearOptions(tags)
 
-	tags, err = c.addTags(fieldName, tags)
+	tags, err = c.addTags(structName, fieldName, tags)
 	if err != nil {
 		return "", err
 	}
@@ -373,40 +390,40 @@ func (c *config) addTagOptions(tags *structtag.Tags) (*structtag.Tags, error) {
 	return tags, nil
 }
 
-func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tags, error) {
+func (c *config) addTags(structName, fieldName string, tags *structtag.Tags) (*structtag.Tags, error) {
 	if c.add == nil || len(c.add) == 0 {
 		return tags, nil
 	}
 
-	splitted := camelcase.Split(fieldName)
+	split := camelcase.Split(fieldName)
 	name := ""
 
 	unknown := false
 	switch c.transform {
 	case "snakecase":
-		var lowerSplitted []string
-		for _, s := range splitted {
-			lowerSplitted = append(lowerSplitted, strings.ToLower(s))
+		var lowerSplit []string
+		for _, s := range split {
+			lowerSplit = append(lowerSplit, strings.ToLower(s))
 		}
 
-		name = strings.Join(lowerSplitted, "_")
+		name = strings.Join(lowerSplit, "_")
 	case "envcase":
-		var upperSplitted []string
-		for _, s := range splitted {
-			upperSplitted = append(upperSplitted, strings.ToUpper(s))
+		upperSplit := []string{strings.ToUpper(structName)}
+		for _, s := range split {
+			upperSplit = append(upperSplit, strings.ToUpper(s))
 		}
 
-		name = strings.Join(upperSplitted, "_")
+		name = strings.Join(upperSplit, "_")
 	case "lispcase":
-		var lowerSplitted []string
-		for _, s := range splitted {
-			lowerSplitted = append(lowerSplitted, strings.ToLower(s))
+		var lowerSplit []string
+		for _, s := range split {
+			lowerSplit = append(lowerSplit, strings.ToLower(s))
 		}
 
-		name = strings.Join(lowerSplitted, "-")
+		name = strings.Join(lowerSplit, "-")
 	case "camelcase":
 		var titled []string
-		for _, s := range splitted {
+		for _, s := range split {
 			titled = append(titled, strings.Title(s))
 		}
 
@@ -415,7 +432,7 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		name = strings.Join(titled, "")
 	case "pascalcase":
 		var titled []string
-		for _, s := range splitted {
+		for _, s := range split {
 			titled = append(titled, strings.Title(s))
 		}
 
@@ -431,10 +448,10 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 	}
 
 	for _, key := range c.add {
-		splitted = strings.SplitN(key, ":", 2)
-		if len(splitted) >= 2 {
-			key = splitted[0]
-			name = strings.Join(splitted[1:], "")
+		split = strings.SplitN(key, ":", 2)
+		if len(split) >= 2 {
+			key = split[0]
+			name = strings.Join(split[1:], "")
 		} else if unknown {
 			// the user didn't pass any value but want to use an unknown
 			// transform. We don't return above in the default as the user
@@ -463,7 +480,7 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 
 // collectStructs collects and maps structType nodes to their positions
 func collectStructs(node ast.Node) map[token.Pos]*structType {
-	structs := make(map[token.Pos]*structType, 0)
+	structs := make(map[token.Pos]*structType)
 
 	collectStructs := func(n ast.Node) bool {
 		var t ast.Expr
@@ -656,8 +673,8 @@ func (c *config) fieldSelection(st *ast.StructType) (int, int, error) {
 	}
 
 	if encField == nil {
-		return 0, 0, errors.New(fmt.Sprintf("struct %q doesn't have field name %q",
-			c.structName, c.fieldName))
+		return 0, 0, fmt.Errorf("struct %q doesn't have field name %q",
+			c.structName, c.fieldName)
 	}
 
 	start := c.fset.Position(encField.Pos()).Line
@@ -710,8 +727,14 @@ func isPublicName(name string) bool {
 // positions
 func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 	errs := &rewriteErrors{errs: make([]error, 0)}
+	
+	var structName string
 
 	rewriteFunc := func(n ast.Node) bool {
+		if typeSpec, ok := n.(*ast.TypeSpec); ok {
+			structName = typeSpec.Name.Name
+		}
+		
 		x, ok := n.(*ast.StructType)
 		if !ok {
 			return true
@@ -755,7 +778,7 @@ func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
 				f.Tag = &ast.BasicLit{}
 			}
 
-			res, err := c.process(fieldName, f.Tag.Value)
+			res, err := c.process(structName, fieldName, f.Tag.Value)
 			if err != nil {
 				errs.Append(fmt.Errorf("%s:%d:%d:%s",
 					c.fset.Position(f.Pos()).Filename,
@@ -909,4 +932,48 @@ func deref(x ast.Expr) ast.Expr {
 		return deref(t.Elt)
 	}
 	return x
+}
+
+func (c *config) printEnvs(in string) error {
+	split := strings.Split(in, "\n")
+		
+	// Looking for something in the pattern of
+	//    Field   {type} `conf:"env:ENV_VARIABLE,no-print"`
+	// to extract the ENV_VARIABLE part.
+	var envs []string
+	for _, val := range split {
+		match := "env:"
+		idx := strings.Index(val, match)
+		if idx != -1 {
+			val = val[idx + len(match):]
+			
+			// Find the ending double quote to grab from example: ENV_VARIABLE,noprint.
+			idx = strings.Index(val, "\"")
+			if idx != -1 {
+				val = val[:idx]
+
+				// Find if there is a comma "," from example: ENV_VARIABLE.
+				idx = strings.Index(val, ",")
+				if idx != -1 {
+					val = val[:idx]
+				}
+
+				// Make sure there are no empty spaces in the environmental variable.
+				val = strings.TrimSpace(val)
+
+				env := val + "="
+				envs = append(envs, env)
+			}
+		}
+	}
+
+	f, err := os.Create(c.printEnvFileName)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(strings.Join(envs, "\n"))
+
+	return err
 }
