@@ -303,6 +303,16 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "line_envcase_add",
+			cfg: &config{
+				add:       []string{"conf"},
+				output:    "source",
+				line:      "4,5",
+				transform: "envcase",
+				valueFormat: "env:$field",
+			},
+		},
+		{
 			file: "line_value_add",
 			cfg: &config{
 				add:    []string{"json:foo"},

@@ -72,13 +72,13 @@ type config struct {
 }
 
 func main() {
-	if err := realMain(); err != nil {
+	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
 }
 
-func realMain() error {
+func run() error {
 	cfg, err := parseConfig(os.Args[1:])
 	if err != nil {
 		if err == flag.ErrHelp {
@@ -150,13 +150,13 @@ func parseConfig(args []string) (*config, error) {
 		flagSkipUnexportedFields = flag.Bool("skip-unexported", false, "Skip unexported fields")
 		flagTransform            = flag.String("transform", "snakecase",
 			"Transform adds a transform rule when adding tags."+
-				" Current options: [snakecase, camelcase, lispcase, pascalcase, keep]")
+				" Current options: [snakecase, envcase, camelcase, lispcase, pascalcase, keep]")
 		flagSort = flag.Bool("sort", false,
 			"Sort sorts the tags in increasing order according to the key name")
 
 		// formatting
 		flagFormatting = flag.String("template", "",
-			"Format the given tag's value. i.e: \"column:$field\", \"field_name=$field\"")
+			"Format the given tag's value. i.e: 'column:$field', 'field_name=$field'")
 
 		// option flags
 		flagRemoveOptions = flag.String("remove-options", "",
@@ -390,6 +390,13 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		}
 
 		name = strings.Join(lowerSplitted, "_")
+	case "envcase":
+		var upperSplitted []string
+		for _, s := range splitted {
+			upperSplitted = append(upperSplitted, strings.ToUpper(s))
+		}
+
+		name = strings.Join(upperSplitted, "_")
 	case "lispcase":
 		var lowerSplitted []string
 		for _, s := range splitted {
