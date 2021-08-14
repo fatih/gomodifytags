@@ -161,7 +161,7 @@ prefixing them (`field_name=<your_value>`). The `--template` flag allows you to
 specify a custom format for the tag value to be applied.
 
 ```
-$ gomodifytags -file demo.go -struct Server -add-tags gaum -template "field_name=$field" 
+$ gomodifytags -file demo.go -struct Server -add-tags gaum -template 'field_name=$field' 
 ```
 
 ```go
@@ -183,6 +183,7 @@ The `$field` is a special keyword that is replaced by the struct tag's value
 We currently support the following transformations:
 
 * `snakecase`: `"BaseDomain"` -> `"base_domain"`
+* `envcase`: `"BaseDomain"` -> `"BASE_DOMAIN"`
 * `camelcase`: `"BaseDomain"` -> `"baseDomain"`
 * `lispcase`:  `"BaseDomain"` -> `"base-domain"`
 * `pascalcase`:  `"BaseDomain"` -> `"BaseDomain"`
