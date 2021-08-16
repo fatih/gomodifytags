@@ -161,7 +161,7 @@ prefixing them (`field_name=<your_value>`). The `--template` flag allows you to
 specify a custom format for the tag value to be applied.
 
 ```
-$ gomodifytags -file demo.go -struct Server -add-tags gaum -template "field_name=$field" 
+$ gomodifytags -file demo.go -struct Server -add-tags gaum -template 'field_name=$field' 
 ```
 
 ```go
@@ -183,6 +183,7 @@ The `$field` is a special keyword that is replaced by the struct tag's value
 We currently support the following transformations:
 
 * `snakecase`: `"BaseDomain"` -> `"base_domain"`
+* `envcase`: `"BaseDomain"` -> `"BASE_DOMAIN"`
 * `camelcase`: `"BaseDomain"` -> `"baseDomain"`
 * `lispcase`:  `"BaseDomain"` -> `"base-domain"`
 * `pascalcase`:  `"BaseDomain"` -> `"BaseDomain"`
@@ -378,7 +379,7 @@ type Server struct {
 }
 ```
 
-Lastly, to remove all options without explicitly defining the keys and names,
+To remove all options without explicitly defining the keys and names,
 we can use the `-clear-options` flag. The following example will remove all
 options for the given struct:
 
@@ -398,6 +399,16 @@ type Server struct {
 		Password string `json:"password" xml:"password"`
 	} `json:"credentials" xml:"credentials"`
 }
+```
+
+**Environment Variables**
+
+In order to print an `.env` file template, use the `-print-envs` flag to default
+to `./.env` or add `-envs-filename /path/to/file` and it will create a new file
+with the path and name specified.
+
+```bash
+$ gomodifytags -file test-fixtures/all_structs.input -all -add-tags conf -template 'env:$field,noprint' -transform envcase -envs-filename 'path/to/.env' -print-envs
 ```
 
 ## Line based modification
