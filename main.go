@@ -420,7 +420,12 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 	}
 
 	if c.valueFormat != "" {
+		prevName := name
 		name = strings.ReplaceAll(c.valueFormat, "{field}", name)
+		if name == c.valueFormat {
+			// support old style for backward compatibility
+			name = strings.ReplaceAll(c.valueFormat, "$field", prevName)
+		}
 	}
 
 	for _, key := range c.add {
