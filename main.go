@@ -44,6 +44,7 @@ type output struct {
 type config struct {
 	file     string
 	output   string
+	quiet    bool
 	write    bool
 	modified io.Reader
 
@@ -114,7 +115,9 @@ func realMain() error {
 		return err
 	}
 
-	fmt.Println(out)
+	if !cfg.quiet {
+		fmt.Println(out)
+	}
 	return nil
 }
 
@@ -122,8 +125,9 @@ func parseConfig(args []string) (*config, error) {
 	var (
 		// file flags
 		flagFile  = flag.String("file", "", "Filename to be parsed")
-		flagWrite = flag.Bool("w", false,
-			"Write result to (source) file instead of stdout")
+		flagWrite = flag.Bool("w", false, "Write results to (source) file")
+		flagQuiet = flag.Bool("quiet", false, "Don't print result to stdout")
+
 		flagOutput = flag.String("format", "source", "Output format."+
 			"By default it's the whole file. Options: [source, json]")
 		flagModified = flag.Bool("modified", false, "read an archive of modified files from standard input")
@@ -188,6 +192,7 @@ func parseConfig(args []string) (*config, error) {
 		all:                  *flagAll,
 		output:               *flagOutput,
 		write:                *flagWrite,
+		quiet:                *flagQuiet,
 		clear:                *flagClearTags,
 		clearOption:          *flagClearOptions,
 		transform:            *flagTransform,

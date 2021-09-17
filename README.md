@@ -97,12 +97,18 @@ type Server struct {
 }
 ```
 
-By default every change will be printed to stdout. So it's safe to run it and
-see the results of it. If you want to change it permanently, pass the `-w`
-(write) flag.
+By default changes will be printed to stdout and can be used for dry-run your
+changes before making destructive changes. If you want to change it permanently,
+pass the `-w` (write) flag.
 
 ```
 $ gomodifytags -file demo.go -struct Server -add-tags json -w
+```
+
+You can disable printing the results to stdout with the `--quiet` flag:
+
+```
+$ gomodifytags -file demo.go -struct Server -add-tags json -w --quiet
 ```
 
 You can pass multiple keys to add tags. The following will add `json` and `xml`
