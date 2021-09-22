@@ -418,6 +418,13 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		}
 
 		name = strings.Join(titled, "")
+	case "pascalspaced":
+		var titled []string
+		for _, s := range splitted {
+			titled = append(titled, strings.Title(s))
+		}
+
+		name = strings.Join(titled, " ")
 	case "keep":
 		name = fieldName
 	default:
