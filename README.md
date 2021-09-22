@@ -192,6 +192,7 @@ We currently support the following transformations:
 * `camelcase`: `"BaseDomain"` -> `"baseDomain"`
 * `lispcase`:  `"BaseDomain"` -> `"base-domain"`
 * `pascalcase`:  `"BaseDomain"` -> `"BaseDomain"`
+* `titlecase`:  `"BaseDomain"` -> `"Base Domain"`
 * `keep`:  keeps the original field name
 
 You can also pass a static value for each fields. This is useful if you use Go
