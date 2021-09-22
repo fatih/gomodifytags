@@ -20,7 +20,7 @@ go get github.com/fatih/gomodifytags
 
 * [vim-go](https://github.com/fatih/vim-go) with `:GoAddTags` and `:GoRemoveTags`
 * [go-plus (atom)](https://github.com/joefitzgerald/go-plus) with commands `golang:add-tags` and `golang:remove-tags`
-* [vscode-go](https://github.com/Microsoft/vscode-go) with commands `Go: Add Tags` and `Go: Remove Tags`
+* [vscode-go](https://github.com/golang/vscode-go) with commands `Go: Add Tags` and `Go: Remove Tags`
 * [A (Acme)](https://github.com/davidrjenni/A) with commands `addtags` and `rmtags`
 * [emacs-go-tag](https://github.com/brantou/emacs-go-tag) with commands `go-tag-add` and `go-tag-remove`
 
@@ -56,6 +56,8 @@ to change:
 * `-struct`: This accepts the struct name. i.e: `-struct Server`. The name
   should be a valid type name. The `-struct` flag selects the whole struct, and
   thus it will operate on all fields.
+* `-field`: This accepts a field name. i.e: `-field Address`. Useful to select
+  a certain field. The name should be a valid field name. The `-struct` flag is required.
 * `-offset`: This accepts a byte offset of the file. Useful for editors to pass
   the position under the cursor. i.e: `-offset 548`. The offset has to be
   inside a valid struct. The `-offset` selects the whole struct. If you need
@@ -95,12 +97,18 @@ type Server struct {
 }
 ```
 
-By default every change will be printed to stdout. So it's safe to run it and
-see the results of it. If you want to change it permanently, pass the `-w`
-(write) flag.
+By default changes will be printed to stdout and can be used for dry-run your
+changes before making destructive changes. If you want to change it permanently,
+pass the `-w` (write) flag.
 
 ```
 $ gomodifytags -file demo.go -struct Server -add-tags json -w
+```
+
+You can disable printing the results to stdout with the `--quiet` flag:
+
+```
+$ gomodifytags -file demo.go -struct Server -add-tags json -w --quiet
 ```
 
 You can pass multiple keys to add tags. The following will add `json` and `xml`
@@ -146,6 +154,37 @@ type Server struct {
 	} `json:"credentials" xml:"credentials"`
 }
 ```
+
+### Formatting tag values
+
+By default a struct tag's value is transformed from a struct's field and used
+directly. As an example for the field `Server string`, we generate a tag in the
+form: `json:"server"` (assuming `-add-tags=json` is used).
+
+However, some third party libraries use tags in a different way and might
+require to them to have a particular formatting, such as is the case of
+prefixing them (`field_name=<your_value>`). The `--template` flag allows you to
+specify a custom format for the tag value to be applied.
+
+```
+$ gomodifytags -file demo.go -struct Server -add-tags gaum -template "field_name={field}" 
+```
+
+```go
+package main
+
+type Server struct {
+	Name        string `gaum:"field_name=name"`
+	Port        int    `gaum:"field_name=port"`
+	EnableLogs  bool   `gaum:"field_name=enableLogs"`
+	BaseDomain  string `gaum:"field_name=baseDomain"`
+}
+```
+
+The `{field}` word is a special keyword that is replaced by the struct tag's value
+**after** the [transformation](https://github.com/fatih/gomodifytags#transformations). 
+
+### Transformations
 
 We currently support the following transformations:
 
@@ -482,7 +521,7 @@ type Server struct {
 ```
 
 If we add the `xml` tag and tell to output the format in json  with the
-`-format` flag, the following will be outputed:
+`-format` flag, the following will be printed:
 
 ```
 $ gomodifytags -file demo.go -struct Server -add-tags xml -format json
@@ -516,7 +555,7 @@ type output struct {
 }
 ```
 
-The `start` and `end` specifices the positions in the file the `lines` will
+The `start` and `end` specifies the positions in the file the `lines` will
 apply.  With this information, you can replace the editor buffer by iterating
 over the `lines` and set it for the given range. An example how it's done in
 vim-go in Vimscript is:
@@ -531,9 +570,9 @@ endfor
 
 ### Unsaved files
 
-Editors can supply `gomodifytags` with the contents of unsaved buffers by
-using the `-modified` flag and writing an archive to stdin.  
-Files in the archive will be preferred over those on disk.
+Editors can supply `gomodifytags` with the contents of unsaved buffers by using
+the `-modified` flag and writing an archive to stdin.  Files in the archive
+will be preferred over those on disk.
 
 Each archive entry consists of:
  - the file name, followed by a newline

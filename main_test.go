@@ -42,6 +42,46 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "struct_format",
+			cfg: &config{
+				add:         []string{"gaum"},
+				output:      "source",
+				structName:  "foo",
+				transform:   "snakecase",
+				valueFormat: "field_name={field}",
+			},
+		},
+		{
+			file: "struct_format_existing",
+			cfg: &config{
+				add:         []string{"gaum"},
+				output:      "source",
+				structName:  "foo",
+				transform:   "snakecase",
+				valueFormat: "field_name={field}",
+			},
+		},
+		{
+			file: "struct_format_oldstyle",
+			cfg: &config{
+				add:         []string{"gaum"},
+				output:      "source",
+				structName:  "foo",
+				transform:   "snakecase",
+				valueFormat: "field_name=$field",
+			},
+		},
+		{
+			file: "struct_format_existing_oldstyle",
+			cfg: &config{
+				add:         []string{"gaum"},
+				output:      "source",
+				structName:  "foo",
+				transform:   "snakecase",
+				valueFormat: "field_name=$field",
+			},
+		},
+		{
 			file: "struct_remove",
 			cfg: &config{
 				remove:     []string{"json"},
@@ -428,6 +468,90 @@ func TestRewrite(t *testing.T) {
 				transform: "titlecase",
 			},
 		},
+		{
+			file: "field_add",
+			cfg: &config{
+				add:        []string{"json"},
+				output:     "source",
+				structName: "foo",
+				fieldName:  "bar",
+				transform:  "snakecase",
+			},
+		},
+		{
+			file: "field_add_same_line",
+			cfg: &config{
+				add:        []string{"json"},
+				output:     "source",
+				structName: "foo",
+				fieldName:  "qux",
+				transform:  "snakecase",
+			},
+		},
+		{
+			file: "field_add_existing",
+			cfg: &config{
+				add:        []string{"json"},
+				output:     "source",
+				structName: "foo",
+				fieldName:  "bar",
+				transform:  "snakecase",
+			},
+		},
+		{
+			file: "field_clear_tags",
+			cfg: &config{
+				clear:      true,
+				output:     "source",
+				structName: "foo",
+				fieldName:  "bar",
+			},
+		},
+		{
+			file: "field_clear_options",
+			cfg: &config{
+				clearOption: true,
+				output:      "source",
+				structName:  "foo",
+				fieldName:   "bar",
+			},
+		},
+		{
+			file: "field_remove",
+			cfg: &config{
+				remove:     []string{"json"},
+				output:     "source",
+				structName: "foo",
+				fieldName:  "bar",
+			},
+		},
+		{
+			file: "offset_anonymous_struct",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				offset:    45,
+				transform: "camelcase",
+			},
+		},
+		{
+			file: "offset_star_struct",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				offset:    35,
+				transform: "camelcase",
+			},
+		},
+		{
+			file: "offset_array_struct",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				offset:    35,
+				transform: "camelcase",
+			},
+		},
 	}
 
 	for _, ts := range test {
@@ -801,5 +925,18 @@ func TestParseLines(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+func TestParseConfig(t *testing.T) {
+	// don't output help message during the test
+	flag.CommandLine.SetOutput(ioutil.Discard)
+
+	// The flag.CommandLine.Parse() call fails if there are flags re-defined
+	// with the same name. If there are duplicates, parseConfig() will return
+	// an error.
+	_, err := parseConfig([]string{"test"})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

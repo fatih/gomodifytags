@@ -44,11 +44,13 @@ type output struct {
 type config struct {
 	file     string
 	output   string
+	quiet    bool
 	write    bool
 	modified io.Reader
 
 	offset     int
 	structName string
+	fieldName  string
 	line       string
 	start, end int
 	all        bool
@@ -65,6 +67,7 @@ type config struct {
 
 	transform   string
 	sort        bool
+	valueFormat string
 	clear       bool
 	clearOption bool
 }
@@ -77,97 +80,15 @@ func main() {
 }
 
 func realMain() error {
-	var (
-		// file flags
-		flagFile  = flag.String("file", "", "Filename to be parsed")
-		flagWrite = flag.Bool("w", false,
-			"Write result to (source) file instead of stdout")
-		flagOutput = flag.String("format", "source", "Output format."+
-			"By default it's the whole file. Options: [source, json]")
-		flagModified = flag.Bool("modified", false, "read an archive of modified files from standard input")
-
-		// processing modes
-		flagOffset = flag.Int("offset", 0,
-			"Byte offset of the cursor position inside a struct."+
-				"Can be anwhere from the comment until closing bracket")
-		flagLine = flag.String("line", "",
-			"Line number of the field or a range of line. i.e: 4 or 4,8")
-		flagStruct = flag.String("struct", "", "Struct name to be processed")
-		flagAll    = flag.Bool("all", false, "Select all structs to be processed")
-
-		// tag flags
-		flagRemoveTags = flag.String("remove-tags", "",
-			"Remove tags for the comma separated list of keys")
-		flagClearTags = flag.Bool("clear-tags", false,
-			"Clear all tags")
-		flagAddTags = flag.String("add-tags", "",
-			"Adds tags for the comma separated list of keys."+
-				"Keys can contain a static value, i,e: json:foo")
-		flagOverride          = flag.Bool("override", false, "Override current tags when adding tags")
-		flagSkipPrivateFields = flag.Bool("skip-unexported", false, "Skip unexported fields")
-		flagTransform         = flag.String("transform", "snakecase",
-			"Transform adds a transform rule when adding tags."+
-				" Current options: [snakecase, camelcase, lispcase, pascalcase, titlecase, keep]")
-		flagSort = flag.Bool("sort", false,
-			"Sort sorts the tags in increasing order according to the key name")
-
-		// option flags
-		flagRemoveOptions = flag.String("remove-options", "",
-			"Remove the comma separated list of options from the given keys, "+
-				"i.e: json=omitempty,hcl=squash")
-		flagClearOptions = flag.Bool("clear-options", false,
-			"Clear all tag options")
-		flagAddOptions = flag.String("add-options", "",
-			"Add the options per given key. i.e: json=omitempty,hcl=squash")
-	)
-
-	// don't output full help information if something goes wrong
-	flag.Usage = func() {}
-	flag.Parse()
-
-	if flag.NFlag() == 0 {
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
-		flag.PrintDefaults()
-		return nil
+	cfg, err := parseConfig(os.Args[1:])
+	if err != nil {
+		if err == flag.ErrHelp {
+			return nil
+		}
+		return err
 	}
 
-	cfg := &config{
-		file:                 *flagFile,
-		line:                 *flagLine,
-		structName:           *flagStruct,
-		offset:               *flagOffset,
-		all:                  *flagAll,
-		output:               *flagOutput,
-		write:                *flagWrite,
-		clear:                *flagClearTags,
-		clearOption:          *flagClearOptions,
-		transform:            *flagTransform,
-		sort:                 *flagSort,
-		override:             *flagOverride,
-		skipUnexportedFields: *flagSkipPrivateFields,
-	}
-
-	if *flagModified {
-		cfg.modified = os.Stdin
-	}
-
-	if *flagAddTags != "" {
-		cfg.add = strings.Split(*flagAddTags, ",")
-	}
-
-	if *flagAddOptions != "" {
-		cfg.addOptions = strings.Split(*flagAddOptions, ",")
-	}
-
-	if *flagRemoveTags != "" {
-		cfg.remove = strings.Split(*flagRemoveTags, ",")
-	}
-
-	if *flagRemoveOptions != "" {
-		cfg.removeOptions = strings.Split(*flagRemoveOptions, ",")
-	}
-
-	err := cfg.validate()
+	err = cfg.validate()
 	if err != nil {
 		return err
 	}
@@ -194,8 +115,115 @@ func realMain() error {
 		return err
 	}
 
-	fmt.Println(out)
+	if !cfg.quiet {
+		fmt.Println(out)
+	}
 	return nil
+}
+
+func parseConfig(args []string) (*config, error) {
+	var (
+		// file flags
+		flagFile  = flag.String("file", "", "Filename to be parsed")
+		flagWrite = flag.Bool("w", false, "Write results to (source) file")
+		flagQuiet = flag.Bool("quiet", false, "Don't print result to stdout")
+
+		flagOutput = flag.String("format", "source", "Output format."+
+			"By default it's the whole file. Options: [source, json]")
+		flagModified = flag.Bool("modified", false, "read an archive of modified files from standard input")
+
+		// processing modes
+		flagOffset = flag.Int("offset", 0,
+			"Byte offset of the cursor position inside a struct."+
+				"Can be anwhere from the comment until closing bracket")
+		flagLine = flag.String("line", "",
+			"Line number of the field or a range of line. i.e: 4 or 4,8")
+		flagStruct = flag.String("struct", "", "Struct name to be processed")
+		flagField  = flag.String("field", "", "Field name to be processed")
+		flagAll    = flag.Bool("all", false, "Select all structs to be processed")
+
+		// tag flags
+		flagRemoveTags = flag.String("remove-tags", "",
+			"Remove tags for the comma separated list of keys")
+		flagClearTags = flag.Bool("clear-tags", false,
+			"Clear all tags")
+		flagAddTags = flag.String("add-tags", "",
+			"Adds tags for the comma separated list of keys."+
+				"Keys can contain a static value, i,e: json:foo")
+		flagOverride             = flag.Bool("override", false, "Override current tags when adding tags")
+		flagSkipUnexportedFields = flag.Bool("skip-unexported", false, "Skip unexported fields")
+		flagTransform            = flag.String("transform", "snakecase",
+			"Transform adds a transform rule when adding tags."+
+				" Current options: [snakecase, camelcase, lispcase, pascalcase, titlecase, keep]")
+		flagSort = flag.Bool("sort", false,
+			"Sort sorts the tags in increasing order according to the key name")
+
+		// formatting
+		flagFormatting = flag.String("template", "",
+			"Format the given tag's value. i.e: \"column:{field}\", \"field_name={field}\"")
+
+		// option flags
+		flagRemoveOptions = flag.String("remove-options", "",
+			"Remove the comma separated list of options from the given keys, "+
+				"i.e: json=omitempty,hcl=squash")
+		flagClearOptions = flag.Bool("clear-options", false,
+			"Clear all tag options")
+		flagAddOptions = flag.String("add-options", "",
+			"Add the options per given key. i.e: json=omitempty,hcl=squash")
+	)
+
+	// this fails if there are flags re-defined with the same name.
+	if err := flag.CommandLine.Parse(args); err != nil {
+		return nil, err
+	}
+
+	if flag.NFlag() == 0 {
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+		return nil, flag.ErrHelp
+	}
+
+	cfg := &config{
+		file:                 *flagFile,
+		line:                 *flagLine,
+		structName:           *flagStruct,
+		fieldName:            *flagField,
+		offset:               *flagOffset,
+		all:                  *flagAll,
+		output:               *flagOutput,
+		write:                *flagWrite,
+		quiet:                *flagQuiet,
+		clear:                *flagClearTags,
+		clearOption:          *flagClearOptions,
+		transform:            *flagTransform,
+		sort:                 *flagSort,
+		valueFormat:          *flagFormatting,
+		override:             *flagOverride,
+		skipUnexportedFields: *flagSkipUnexportedFields,
+	}
+
+	if *flagModified {
+		cfg.modified = os.Stdin
+	}
+
+	if *flagAddTags != "" {
+		cfg.add = strings.Split(*flagAddTags, ",")
+	}
+
+	if *flagAddOptions != "" {
+		cfg.addOptions = strings.Split(*flagAddOptions, ",")
+	}
+
+	if *flagRemoveTags != "" {
+		cfg.remove = strings.Split(*flagRemoveTags, ",")
+	}
+
+	if *flagRemoveOptions != "" {
+		cfg.removeOptions = strings.Split(*flagRemoveOptions, ",")
+	}
+
+	return cfg, nil
+
 }
 
 func (c *config) parse() (ast.Node, error) {
@@ -403,6 +431,15 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		unknown = true
 	}
 
+	if c.valueFormat != "" {
+		prevName := name
+		name = strings.ReplaceAll(c.valueFormat, "{field}", name)
+		if name == c.valueFormat {
+			// support old style for backward compatibility
+			name = strings.ReplaceAll(c.valueFormat, "$field", prevName)
+		}
+	}
+
 	for _, key := range c.add {
 		splitted = strings.SplitN(key, ":", 2)
 		if len(splitted) >= 2 {
@@ -437,6 +474,7 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 // collectStructs collects and maps structType nodes to their positions
 func collectStructs(node ast.Node) map[token.Pos]*structType {
 	structs := make(map[token.Pos]*structType, 0)
+
 	collectStructs := func(n ast.Node) bool {
 		var t ast.Expr
 		var structName string
@@ -455,7 +493,29 @@ func collectStructs(node ast.Node) map[token.Pos]*structType {
 		case *ast.ValueSpec:
 			structName = x.Names[0].Name
 			t = x.Type
+		case *ast.Field:
+			// this case also catches struct fields and the structName
+			// therefore might contain the field name (which is wrong)
+			// because `x.Type` in this case is not a *ast.StructType.
+			//
+			// We're OK with it, because, in our case *ast.Field represents
+			// a parameter declaration, i.e:
+			//
+			//   func test(arg struct {
+			//   	Field int
+			//   }) {
+			//   }
+			//
+			// and hence the struct name will be `arg`.
+			if len(x.Names) != 0 {
+				structName = x.Names[0].Name
+			}
+			t = x.Type
 		}
+
+		// if expression is in form "*T" or "[]T", dereference to check if "T"
+		// contains a struct expression
+		t = deref(t)
 
 		x, ok := t.(*ast.StructType)
 		if !ok {
@@ -468,6 +528,7 @@ func collectStructs(node ast.Node) map[token.Pos]*structType {
 		}
 		return true
 	}
+
 	ast.Inspect(node, collectStructs)
 	return structs
 }
@@ -583,9 +644,34 @@ func (c *config) structSelection(file ast.Node) (int, int, error) {
 		return 0, 0, errors.New("struct name does not exist")
 	}
 
-	// struct selects all lines inside a struct
+	// if field name has been specified as well, only select the given field
+	if c.fieldName != "" {
+		return c.fieldSelection(encStruct)
+	}
+
 	start := c.fset.Position(encStruct.Pos()).Line
 	end := c.fset.Position(encStruct.End()).Line
+
+	return start, end, nil
+}
+
+func (c *config) fieldSelection(st *ast.StructType) (int, int, error) {
+	var encField *ast.Field
+	for _, f := range st.Fields.List {
+		for _, field := range f.Names {
+			if field.Name == c.fieldName {
+				encField = f
+			}
+		}
+	}
+
+	if encField == nil {
+		return 0, 0, errors.New(fmt.Sprintf("struct %q doesn't have field name %q",
+			c.structName, c.fieldName))
+	}
+
+	start := c.fset.Position(encField.Pos()).Line
+	end := c.fset.Position(encField.End()).Line
 
 	return start, end, nil
 }
@@ -734,6 +820,10 @@ func (c *config) validate() error {
 			" should be defined")
 	}
 
+	if c.fieldName != "" && c.structName == "" {
+		return errors.New("-field is requiring -struct")
+	}
+
 	return nil
 }
 
@@ -816,4 +906,17 @@ func split(line string) (int, error) {
 	}
 
 	return 0, fmt.Errorf("couldn't parse line: '%s'", line)
+}
+
+// deref takes an expression, and removes all its leading "*" and "[]"
+// operator. Uuse case : if found expression is a "*t" or "[]t", we need to
+// check if "t" contains a struct expression.
+func deref(x ast.Expr) ast.Expr {
+	switch t := x.(type) {
+	case *ast.StarExpr:
+		return deref(t.X)
+	case *ast.ArrayType:
+		return deref(t.Elt)
+	}
+	return x
 }
