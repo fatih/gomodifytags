@@ -451,6 +451,24 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "line_titlecase_add",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,6",
+				transform: "titlecase",
+			},
+		},
+		{
+			file: "line_titlecase_add_embedded",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,6",
+				transform: "titlecase",
+			},
+		},
+		{
 			file: "field_add",
 			cfg: &config{
 				add:        []string{"json"},
