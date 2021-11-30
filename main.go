@@ -46,6 +46,7 @@ type output struct {
 type config struct {
 	file     string
 	output   string
+	quiet    bool
 	write    bool
 	modified io.Reader
 
@@ -126,7 +127,9 @@ func realMain() error {
 		return err
 	}
 
-	fmt.Println(out)
+	if !cfg.quiet {
+		fmt.Println(out)
+	}
 	return nil
 }
 
@@ -142,8 +145,9 @@ func parseConfig(args []string) (*config, error) {
 	var (
 		// file flags
 		flagFile  = flag.String("file", "", "Filename to be parsed")
-		flagWrite = flag.Bool("w", false,
-			"Write result to (source) file instead of stdout")
+		flagWrite = flag.Bool("w", false, "Write results to (source) file")
+		flagQuiet = flag.Bool("quiet", false, "Don't print result to stdout")
+
 		flagOutput = flag.String("format", "source", "Output format."+
 			"By default it's the whole file. Options: [source, json]")
 		flagModified = flag.Bool("modified", false, "read an archive of modified files from standard input")
@@ -170,13 +174,13 @@ func parseConfig(args []string) (*config, error) {
 		flagSkipUnexportedFields = flag.Bool("skip-unexported", false, "Skip unexported fields")
 		flagTransform            = flag.String("transform", "snakecase",
 			"Transform adds a transform rule when adding tags."+
-				" Current options: [snakecase, camelcase, lispcase, pascalcase, keep]")
+				" Current options: [snakecase, camelcase, lispcase, pascalcase, titlecase, keep]")
 		flagSort = flag.Bool("sort", false,
 			"Sort sorts the tags in increasing order according to the key name")
 
 		// formatting
 		flagFormatting = flag.String("template", "",
-			"Format the given tag's value. i.e: \"column:$field\", \"field_name=$field\"")
+			"Format the given tag's value. i.e: \"column:{field}\", \"field_name={field}\"")
 
 		// option flags
 		flagRemoveOptions = flag.String("remove-options", "",
@@ -208,6 +212,7 @@ func parseConfig(args []string) (*config, error) {
 		all:                  *flagAll,
 		output:               *flagOutput,
 		write:                *flagWrite,
+		quiet:                *flagQuiet,
 		clear:                *flagClearTags,
 		clearOption:          *flagClearOptions,
 		transform:            *flagTransform,
@@ -454,14 +459,21 @@ func convertFieldName(transform, fieldName string) (name string, unknown bool) {
 		}
 
 		name = strings.Join(titled, "")
+	case "titlecase":
+		var titled []string
+		for _, s := range splitted {
+			titled = append(titled, strings.Title(s))
+		}
+
+		name = strings.Join(titled, " ")
 	case "keep":
 		name = fieldName
 	default:
 		unknown = true
 	}
-
 	return
 }
+
 
 func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tags, error) {
 	if c.add == nil || len(c.add) == 0 {
@@ -492,9 +504,17 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		}
 		// toml template  config ,overwrite the flag template
 		if valueFormat, ok := c.templateMap[key]; ok {
-			tagName = strings.ReplaceAll(valueFormat, "$field", name)
+			tagName = strings.ReplaceAll(valueFormat, "{field}", name)
+			if tagName == valueFormat {
+				// support old style for backward compatibility
+				tagName = strings.ReplaceAll(valueFormat, "$field", name)
+			}
 		} else if c.valueFormat != "" {
-			tagName = strings.ReplaceAll(c.valueFormat, "$field", name)
+			tagName = strings.ReplaceAll(c.valueFormat, "{field}", name)
+			if tagName == c.valueFormat {
+				// support old style for backward compatibility
+				tagName = strings.ReplaceAll(c.valueFormat, "$field", name)
+			}
 		} else {
 			tagName = name
 		}

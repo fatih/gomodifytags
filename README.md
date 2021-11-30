@@ -97,12 +97,18 @@ type Server struct {
 }
 ```
 
-By default every change will be printed to stdout. So it's safe to run it and
-see the results of it. If you want to change it permanently, pass the `-w`
-(write) flag.
+By default changes will be printed to stdout and can be used for dry-run your
+changes before making destructive changes. If you want to change it permanently,
+pass the `-w` (write) flag.
 
 ```
 $ gomodifytags -file demo.go -struct Server -add-tags json -w
+```
+
+You can disable printing the results to stdout with the `--quiet` flag:
+
+```
+$ gomodifytags -file demo.go -struct Server -add-tags json -w --quiet
 ```
 
 You can pass multiple keys to add tags. The following will add `json` and `xml`
@@ -161,7 +167,7 @@ prefixing them (`field_name=<your_value>`). The `--template` flag allows you to
 specify a custom format for the tag value to be applied.
 
 ```
-$ gomodifytags -file demo.go -struct Server -add-tags gaum -template "field_name=$field" 
+$ gomodifytags -file demo.go -struct Server -add-tags gaum -template "field_name={field}" 
 ```
 
 ```go
@@ -175,7 +181,7 @@ type Server struct {
 }
 ```
 
-The `$field` is a special keyword that is replaced by the struct tag's value
+The `{field}` word is a special keyword that is replaced by the struct tag's value
 **after** the [transformation](https://github.com/fatih/gomodifytags#transformations). 
 
 ### Transformations
@@ -186,6 +192,7 @@ We currently support the following transformations:
 * `camelcase`: `"BaseDomain"` -> `"baseDomain"`
 * `lispcase`:  `"BaseDomain"` -> `"base-domain"`
 * `pascalcase`:  `"BaseDomain"` -> `"BaseDomain"`
+* `titlecase`:  `"BaseDomain"` -> `"Base Domain"`
 * `keep`:  keeps the original field name
 
 You can also pass a static value for each fields. This is useful if you use Go
