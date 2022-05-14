@@ -13,7 +13,7 @@ terminal. Read the usage section below for more information.
 # Install
 
 ```bash
-go get github.com/fatih/gomodifytags
+go install github.com/fatih/gomodifytags@latest
 ```
 
 # Supported editors
