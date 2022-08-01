@@ -455,6 +455,9 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		tag, err := tags.Get(key)
 		if err != nil {
 			// tag doesn't exist, create a new one
+			if name == "id" && key == "bson" {
+				name = "_id"
+			}
 			tag = &structtag.Tag{
 				Key:  key,
 				Name: name,
