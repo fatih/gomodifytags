@@ -666,8 +666,8 @@ func (c *config) fieldSelection(st *ast.StructType) (int, int, error) {
 	}
 
 	if encField == nil {
-		return 0, 0, errors.New(fmt.Sprintf("struct %q doesn't have field name %q",
-			c.structName, c.fieldName))
+		return 0, 0, fmt.Errorf("struct %q doesn't have field name %q",
+			c.structName, c.fieldName)
 	}
 
 	start := c.fset.Position(encField.Pos()).Line
