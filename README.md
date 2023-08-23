@@ -23,6 +23,7 @@ go install github.com/fatih/gomodifytags@latest
 * [vscode-go](https://github.com/golang/vscode-go) with commands `Go: Add Tags` and `Go: Remove Tags`
 * [A (Acme)](https://github.com/davidrjenni/A) with commands `addtags` and `rmtags`
 * [emacs-go-tag](https://github.com/brantou/emacs-go-tag) with commands `go-tag-add` and `go-tag-remove`
+* [TextMate2](https://github.com/vigo/textmate2-gomodifytags)
 
 # Usage
 
