@@ -33,6 +33,15 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "struct_add_underscore",
+			cfg: &config{
+				add:        []string{"json"},
+				output:     "source",
+				structName: "foo",
+				transform:  "snakecase",
+			},
+		},
+		{
 			file: "struct_add_existing",
 			cfg: &config{
 				add:        []string{"json"},

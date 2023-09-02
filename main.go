@@ -391,6 +391,10 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 	case "snakecase":
 		var lowerSplitted []string
 		for _, s := range splitted {
+			s = strings.Trim(s, "_")
+			if s == "" {
+				continue
+			}
 			lowerSplitted = append(lowerSplitted, strings.ToLower(s))
 		}
 

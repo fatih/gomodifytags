@@ -1,0 +1,5 @@
+package foo
+
+type foo struct {
+	foo_bar string
+}
