@@ -15,6 +15,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -79,49 +81,74 @@ func main() {
 	}
 }
 
+func GetFileNameList(pathname string) ([]string, error) {
+	var ret []string
+	dirname := path.Dir(pathname)
+	filename := path.Base(pathname)
+	dir, _ := os.Open(dirname)
+	defer dir.Close()
+	fileInfos, err := dir.Readdir(0)
+	if err != nil {
+		return ret, errors.New("Error reading directory:" + dirname)
+	}
+	for _, fileInfo := range fileInfos {
+		if fileInfo.IsDir() {
+			continue
+		}
+		matched, err := filepath.Match(filename, fileInfo.Name())
+		if err == nil && matched {
+			ret = append(ret, filepath.Join(dirname, fileInfo.Name()))
+		}
+	}
+	return ret, err
+}
+
 func realMain() error {
-	cfg, err := parseConfig(os.Args[1:])
+	cfgList, err := parseConfig(os.Args[1:])
 	if err != nil {
 		if err == flag.ErrHelp {
 			return nil
 		}
 		return err
 	}
-
-	err = cfg.validate()
-	if err != nil {
-		return err
-	}
-
-	node, err := cfg.parse()
-	if err != nil {
-		return err
-	}
-
-	start, end, err := cfg.findSelection(node)
-	if err != nil {
-		return err
-	}
-
-	rewrittenNode, errs := cfg.rewrite(node, start, end)
-	if errs != nil {
-		if _, ok := errs.(*rewriteErrors); !ok {
-			return errs
+	for _, cfg := range cfgList {
+		var node ast.Node
+		var start, end int
+		err = cfg.validate()
+		if err != nil {
+			return err
 		}
-	}
 
-	out, err := cfg.format(rewrittenNode, errs)
-	if err != nil {
-		return err
-	}
+		node, err = cfg.parse()
+		if err != nil {
+			return err
+		}
 
-	if !cfg.quiet {
-		fmt.Println(out)
+		start, end, err = cfg.findSelection(node)
+		if err != nil {
+			return err
+		}
+
+		rewrittenNode, errs := cfg.rewrite(node, start, end)
+		if errs != nil {
+			if _, ok := errs.(*rewriteErrors); !ok {
+				return errs
+			}
+		}
+
+		out, err := cfg.format(rewrittenNode, errs)
+		if err != nil {
+			return err
+		}
+
+		if !cfg.quiet {
+			fmt.Println(out)
+		}
 	}
 	return nil
 }
 
-func parseConfig(args []string) (*config, error) {
+func parseConfig(args []string) ([]*config, error) {
 	var (
 		// file flags
 		flagFile  = flag.String("file", "", "Filename to be parsed")
@@ -183,47 +210,54 @@ func parseConfig(args []string) (*config, error) {
 		return nil, flag.ErrHelp
 	}
 
-	cfg := &config{
-		file:                 *flagFile,
-		line:                 *flagLine,
-		structName:           *flagStruct,
-		fieldName:            *flagField,
-		offset:               *flagOffset,
-		all:                  *flagAll,
-		output:               *flagOutput,
-		write:                *flagWrite,
-		quiet:                *flagQuiet,
-		clear:                *flagClearTags,
-		clearOption:          *flagClearOptions,
-		transform:            *flagTransform,
-		sort:                 *flagSort,
-		valueFormat:          *flagFormatting,
-		override:             *flagOverride,
-		skipUnexportedFields: *flagSkipUnexportedFields,
+	fileNameList, err := GetFileNameList(*flagFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "get file name error, %s:\n", err.Error())
+		return nil, errors.New("get file name error, " + err.Error())
 	}
+	var cfgList []*config
+	for _, v := range fileNameList {
+		cfg := &config{
+			file:                 v,
+			line:                 *flagLine,
+			structName:           *flagStruct,
+			fieldName:            *flagField,
+			offset:               *flagOffset,
+			all:                  *flagAll,
+			output:               *flagOutput,
+			write:                *flagWrite,
+			quiet:                *flagQuiet,
+			clear:                *flagClearTags,
+			clearOption:          *flagClearOptions,
+			transform:            *flagTransform,
+			sort:                 *flagSort,
+			valueFormat:          *flagFormatting,
+			override:             *flagOverride,
+			skipUnexportedFields: *flagSkipUnexportedFields,
+		}
 
-	if *flagModified {
-		cfg.modified = os.Stdin
+		if *flagModified {
+			cfg.modified = os.Stdin
+		}
+
+		if *flagAddTags != "" {
+			cfg.add = strings.Split(*flagAddTags, ",")
+		}
+
+		if *flagAddOptions != "" {
+			cfg.addOptions = strings.Split(*flagAddOptions, ",")
+		}
+
+		if *flagRemoveTags != "" {
+			cfg.remove = strings.Split(*flagRemoveTags, ",")
+		}
+
+		if *flagRemoveOptions != "" {
+			cfg.removeOptions = strings.Split(*flagRemoveOptions, ",")
+		}
+		cfgList = append(cfgList, cfg)
 	}
-
-	if *flagAddTags != "" {
-		cfg.add = strings.Split(*flagAddTags, ",")
-	}
-
-	if *flagAddOptions != "" {
-		cfg.addOptions = strings.Split(*flagAddOptions, ",")
-	}
-
-	if *flagRemoveTags != "" {
-		cfg.remove = strings.Split(*flagRemoveTags, ",")
-	}
-
-	if *flagRemoveOptions != "" {
-		cfg.removeOptions = strings.Split(*flagRemoveOptions, ",")
-	}
-
-	return cfg, nil
-
+	return cfgList, nil
 }
 
 func (c *config) parse() (ast.Node, error) {

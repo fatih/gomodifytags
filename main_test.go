@@ -940,3 +940,30 @@ func TestParseConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestGetFileNameList(t *testing.T) {
+	type args struct {
+		filename string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []string
+		wantErr bool
+	}{
+		{name: "normal", args: args{"main.go"}, wantErr: false, want: []string{"main.go"}},
+		{name: "reg", args: args{"*.go"}, wantErr: false, want: []string{"main.go", "main_test.go"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetFileNameList(tt.args.filename)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetFileNameList() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetFileNameList() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
