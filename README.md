@@ -581,6 +581,28 @@ Each archive entry consists of:
  - the (decimal) file size, followed by a newline
  - the contents of the file
 
+## Use external config file
+
+when we use  editors like vscode  to add tags, the vscode can only add json tags for us, there is no way to change the config, so I add a toml config support.
+we just need add a `gomodifytags.toml` in the same directory of gomodifytags. in linux we can use `whereis gomodifytags` to get the directory.
+```toml
+Add = ["form", "gorm","binding"]
+Transform = "camelcase"
+[TemplateMap]
+  gorm = "column:$field"
+  binding = "required"
+[TransformMap]
+  gorm = "snakecase"
+
+```
+
+- the `Add` will add external tags to flag tag.
+- the `Transform` will config transform for all tag.
+- the `TemplateMap` will config template for each tag,overwrite the flag template.
+- the `TransformMap` will config transform for each tag,overwrite the flag transform and Transform.
+
+![gomodifytags](https://user-images.githubusercontent.com/5291739/123039779-53382900-d425-11eb-9ae9-daa84f00bb23.gif)
+
 # Development
 
 At least Go `v1.11.x` is required. Older versions might work, but it's not
@@ -604,3 +626,5 @@ go test -v
 ```
 
 If everything works fine, feel free to open a pull request with your changes.
+
+

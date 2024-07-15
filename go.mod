@@ -1,6 +1,7 @@
 module github.com/fatih/gomodifytags
 
 require (
+	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/structtag v1.2.0
 	golang.org/x/tools v0.23.0
