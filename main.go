@@ -43,6 +43,7 @@ type output struct {
 // config defines how tags should be modified
 type config struct {
 	file     string
+	dir      string
 	output   string
 	quiet    bool
 	write    bool
@@ -73,22 +74,37 @@ type config struct {
 }
 
 func main() {
-	if err := realMain(); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
-	}
-}
-
-func realMain() error {
 	cfg, err := parseConfig(os.Args[1:])
 	if err != nil {
 		if err == flag.ErrHelp {
-			return nil
+			return
 		}
-		return err
+		logErrAndExit(err)
 	}
 
-	err = cfg.validate()
+	if cfg.dir == "" {
+		if err := realMain(cfg); err != nil {
+			logErrAndExit(err)
+		}
+	} else {
+		entries, err := os.ReadDir(cfg.dir)
+		if err != nil {
+			logErrAndExit(err)
+		}
+		for _, e := range entries {
+			newCfg := *cfg
+			newCfg.file = cfg.dir + "/" + e.Name()
+			newCfg.dir = ""
+			fmt.Println("executing for file ", newCfg.file)
+			if err := realMain(&newCfg); err != nil {
+				logErrAndExit(err)
+			}
+		}
+	}
+}
+
+func realMain(cfg *config) error {
+	err := cfg.validate()
 	if err != nil {
 		return err
 	}
@@ -125,6 +141,7 @@ func parseConfig(args []string) (*config, error) {
 	var (
 		// file flags
 		flagFile  = flag.String("file", "", "Filename to be parsed")
+		flagDir   = flag.String("dir", "", "dir to be parsed")
 		flagWrite = flag.Bool("w", false, "Write results to (source) file")
 		flagQuiet = flag.Bool("quiet", false, "Don't print result to stdout")
 
@@ -185,6 +202,7 @@ func parseConfig(args []string) (*config, error) {
 
 	cfg := &config{
 		file:                 *flagFile,
+		dir:                  *flagDir,
 		line:                 *flagLine,
 		structName:           *flagStruct,
 		fieldName:            *flagField,
@@ -803,6 +821,10 @@ func (c *config) validate() error {
 		return errors.New("no file is passed")
 	}
 
+	if c.dir != "" && c.file != "" {
+		return errors.New("cannot use -dir and -file together")
+	}
+
 	if c.line == "" && c.offset == 0 && c.structName == "" && !c.all {
 		return errors.New("-line, -offset, -struct or -all is not passed")
 	}
@@ -923,4 +945,9 @@ func deref(x ast.Expr) ast.Expr {
 		return deref(t.Elt)
 	}
 	return x
+}
+
+func logErrAndExit(err error) {
+	fmt.Fprintln(os.Stderr, err.Error())
+	os.Exit(1)
 }
