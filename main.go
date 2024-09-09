@@ -128,13 +128,13 @@ func parseConfig(args []string) (*config, error) {
 		flagWrite = flag.Bool("w", false, "Write results to (source) file")
 		flagQuiet = flag.Bool("quiet", false, "Don't print result to stdout")
 
-		flagOutput = flag.String("format", "source", "Output format."+
+		flagOutput = flag.String("format", "source", "Output format. "+
 			"By default it's the whole file. Options: [source, json]")
 		flagModified = flag.Bool("modified", false, "read an archive of modified files from standard input")
 
 		// processing modes
 		flagOffset = flag.Int("offset", 0,
-			"Byte offset of the cursor position inside a struct."+
+			"Byte offset of the cursor position inside a struct. "+
 				"Can be anwhere from the comment until closing bracket")
 		flagLine = flag.String("line", "",
 			"Line number of the field or a range of line. i.e: 4 or 4,8")
@@ -148,13 +148,13 @@ func parseConfig(args []string) (*config, error) {
 		flagClearTags = flag.Bool("clear-tags", false,
 			"Clear all tags")
 		flagAddTags = flag.String("add-tags", "",
-			"Adds tags for the comma separated list of keys."+
+			"Adds tags for the comma separated list of keys. "+
 				"Keys can contain a static value, i,e: json:foo")
 		flagOverride             = flag.Bool("override", false, "Override current tags when adding tags")
 		flagSkipUnexportedFields = flag.Bool("skip-unexported", false, "Skip unexported fields")
 		flagTransform            = flag.String("transform", "snakecase",
-			"Transform adds a transform rule when adding tags."+
-				" Current options: [snakecase, camelcase, lispcase, pascalcase, titlecase, keep]")
+			"Transform adds a transform rule when adding tags. Current options: "+
+				"[snakecase, constcase, [strict]camelcase, lispcase, [strict]pascalcase, titlecase, keep]")
 		flagSort = flag.Bool("sort", false,
 			"Sort sorts the tags in increasing order according to the key name")
 
@@ -383,22 +383,29 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		return tags, nil
 	}
 
+	StrictTitle := func(s string) string {
+		return strings.Title(strings.ToLower(s))
+	}
+
 	splitted := camelcase.Split(fieldName)
 	name := ""
 
 	unknown := false
-	switch c.transform {
+	switch Title, ConvertCase := strings.Title, strings.ToLower; c.transform {
+	case "constcase":
+		ConvertCase = strings.ToUpper
+		fallthrough
 	case "snakecase":
-		var lowerSplitted []string
+		var convertedSplitted []string
 		for _, s := range splitted {
 			s = strings.Trim(s, "_")
 			if s == "" {
 				continue
 			}
-			lowerSplitted = append(lowerSplitted, strings.ToLower(s))
+			convertedSplitted = append(convertedSplitted, ConvertCase(s))
 		}
 
-		name = strings.Join(lowerSplitted, "_")
+		name = strings.Join(convertedSplitted, "_")
 	case "lispcase":
 		var lowerSplitted []string
 		for _, s := range splitted {
@@ -406,19 +413,23 @@ func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tag
 		}
 
 		name = strings.Join(lowerSplitted, "-")
+	case "strictcamelcase":
+		Title = StrictTitle
+		fallthrough
 	case "camelcase":
 		var titled []string
-		for _, s := range splitted {
-			titled = append(titled, strings.Title(s))
+		for _, s := range splitted[1:] {
+			titled = append(titled, Title(s))
 		}
 
-		titled[0] = strings.ToLower(titled[0])
-
-		name = strings.Join(titled, "")
+		name = strings.ToLower(splitted[0]) + strings.Join(titled, "")
+	case "strictpascalcase":
+		Title = StrictTitle
+		fallthrough
 	case "pascalcase":
 		var titled []string
 		for _, s := range splitted {
-			titled = append(titled, strings.Title(s))
+			titled = append(titled, Title(s))
 		}
 
 		name = strings.Join(titled, "")

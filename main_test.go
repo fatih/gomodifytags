@@ -314,6 +314,42 @@ func TestRewrite(t *testing.T) {
 			},
 		},
 		{
+			file: "line_constcase_add",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,5",
+				transform: "constcase",
+			},
+		},
+		{
+			file: "line_constcase_add_embedded",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,6",
+				transform: "constcase",
+			},
+		},
+		{
+			file: "line_strictcamelcase_add",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,5",
+				transform: "strictcamelcase",
+			},
+		},
+		{
+			file: "line_strictcamelcase_add_embedded",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,6",
+				transform: "strictcamelcase",
+			},
+		},
+		{
 			file: "line_camelcase_add",
 			cfg: &config{
 				add:       []string{"json"},
@@ -391,6 +427,24 @@ func TestRewrite(t *testing.T) {
 				output:    "source",
 				line:      "4,7",
 				transform: "snakecase",
+			},
+		},
+		{
+			file: "line_strictpascalcase_add",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,5",
+				transform: "strictpascalcase",
+			},
+		},
+		{
+			file: "line_strictpascalcase_add_embedded",
+			cfg: &config{
+				add:       []string{"json"},
+				output:    "source",
+				line:      "4,6",
+				transform: "strictpascalcase",
 			},
 		},
 		{
