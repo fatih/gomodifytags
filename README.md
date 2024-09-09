@@ -189,11 +189,14 @@ The `{field}` word is a special keyword that is replaced by the struct tag's val
 
 We currently support the following transformations:
 
-* `snakecase`: `"BaseDomain"` -> `"base_domain"`
-* `camelcase`: `"BaseDomain"` -> `"baseDomain"`
-* `lispcase`:  `"BaseDomain"` -> `"base-domain"`
-* `pascalcase`:  `"BaseDomain"` -> `"BaseDomain"`
-* `titlecase`:  `"BaseDomain"` -> `"Base Domain"`
+* `snakecase`: `"DBUserID"` -> `"db_user_id"`
+* `constcase`: `"DBUserID"` -> `"DB_USER_ID"`
+* `camelcase`: `"DBUserID"` -> `"dbUserID"`
+* `strictcamelcase`: `"DBUserID"` -> `"dbUserId"`
+* `lispcase`:  `"DBUserID"` -> `"db-user-id"`
+* `pascalcase`: `"DBUserID"` -> `"DBUserID"`
+* `strictpascalcase`:  `"DBUserID"` -> `"DbUserId"`
+* `titlecase`:  `"DBUserID"` -> `"DB User ID"`
 * `keep`:  keeps the original field name
 
 You can also pass a static value for each fields. This is useful if you use Go
