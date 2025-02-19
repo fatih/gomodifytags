@@ -15,18 +15,17 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
-	"unicode"
 
-	"github.com/fatih/camelcase"
-	"github.com/fatih/structtag"
+	"github.com/fatih/gomodifytags/modifytags"
 	"golang.org/x/tools/go/buildutil"
 )
 
 // structType contains a structType node and it's name. It's a convenient
-// helper type, because *ast.StructType doesn't contain the name of the struct
+// helper type, because *ast.StructType doesn't contain the name of the struct.
+// Also, we want to be able to handle structs selected by their variable name,
+// so we can't simply use a TypeSpec.
 type structType struct {
 	name string
 	node *ast.StructType
@@ -40,7 +39,7 @@ type output struct {
 	Errors []string `json:"errors,omitempty"`
 }
 
-// config defines how tags should be modified
+// A config defines how the input is parsed and formatted.
 type config struct {
 	file     string
 	output   string
@@ -56,20 +55,6 @@ type config struct {
 	all        bool
 
 	fset *token.FileSet
-
-	remove        []string
-	removeOptions []string
-
-	add                  []string
-	addOptions           []string
-	override             bool
-	skipUnexportedFields bool
-
-	transform   string
-	sort        bool
-	valueFormat string
-	clear       bool
-	clearOption bool
 }
 
 func main() {
@@ -80,7 +65,7 @@ func main() {
 }
 
 func realMain() error {
-	cfg, err := parseConfig(os.Args[1:])
+	cfg, mod, err := parseFlags(os.Args[1:])
 	if err != nil {
 		if err == flag.ErrHelp {
 			return nil
@@ -88,40 +73,10 @@ func realMain() error {
 		return err
 	}
 
-	err = cfg.validate()
-	if err != nil {
-		return err
-	}
-
-	node, err := cfg.parse()
-	if err != nil {
-		return err
-	}
-
-	start, end, err := cfg.findSelection(node)
-	if err != nil {
-		return err
-	}
-
-	rewrittenNode, errs := cfg.rewrite(node, start, end)
-	if errs != nil {
-		if _, ok := errs.(*rewriteErrors); !ok {
-			return errs
-		}
-	}
-
-	out, err := cfg.format(rewrittenNode, errs)
-	if err != nil {
-		return err
-	}
-
-	if !cfg.quiet {
-		fmt.Println(out)
-	}
-	return nil
+	return run(cfg, mod)
 }
 
-func parseConfig(args []string) (*config, error) {
+func parseFlags(args []string) (*config, *modifytags.Modification, error) {
 	var (
 		// file flags
 		flagFile  = flag.String("file", "", "Filename to be parsed")
@@ -174,32 +129,37 @@ func parseConfig(args []string) (*config, error) {
 
 	// this fails if there are flags re-defined with the same name.
 	if err := flag.CommandLine.Parse(args); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if flag.NFlag() == 0 {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
 		flag.PrintDefaults()
-		return nil, flag.ErrHelp
+		return nil, nil, flag.ErrHelp
 	}
 
 	cfg := &config{
-		file:                 *flagFile,
-		line:                 *flagLine,
-		structName:           *flagStruct,
-		fieldName:            *flagField,
-		offset:               *flagOffset,
-		all:                  *flagAll,
-		output:               *flagOutput,
-		write:                *flagWrite,
-		quiet:                *flagQuiet,
-		clear:                *flagClearTags,
-		clearOption:          *flagClearOptions,
-		transform:            *flagTransform,
-		sort:                 *flagSort,
-		valueFormat:          *flagFormatting,
-		override:             *flagOverride,
-		skipUnexportedFields: *flagSkipUnexportedFields,
+		file:       *flagFile,
+		line:       *flagLine,
+		structName: *flagStruct,
+		fieldName:  *flagField,
+		offset:     *flagOffset,
+		all:        *flagAll,
+		output:     *flagOutput,
+		write:      *flagWrite,
+		quiet:      *flagQuiet,
+	}
+
+	transform := parseTransform(*flagTransform)
+
+	mod := &modifytags.Modification{
+		Clear:                *flagClearTags,
+		ClearOptions:         *flagClearOptions,
+		Transform:            transform,
+		Sort:                 *flagSort,
+		ValueFormat:          *flagFormatting,
+		Overwrite:            *flagOverride,
+		SkipUnexportedFields: *flagSkipUnexportedFields,
 	}
 
 	if *flagModified {
@@ -207,272 +167,139 @@ func parseConfig(args []string) (*config, error) {
 	}
 
 	if *flagAddTags != "" {
-		cfg.add = strings.Split(*flagAddTags, ",")
+		mod.Add = strings.Split(*flagAddTags, ",")
 	}
 
 	if *flagAddOptions != "" {
-		cfg.addOptions = strings.Split(*flagAddOptions, ",")
+		parsedOptions, err := parseOptions(*flagAddOptions)
+		if err != nil {
+			return nil, nil, err
+		}
+		mod.AddOptions = parsedOptions
 	}
 
 	if *flagRemoveTags != "" {
-		cfg.remove = strings.Split(*flagRemoveTags, ",")
+		mod.Remove = strings.Split(*flagRemoveTags, ",")
 	}
 
 	if *flagRemoveOptions != "" {
-		cfg.removeOptions = strings.Split(*flagRemoveOptions, ",")
+		parsedOptions, err := parseOptions(*flagRemoveOptions)
+		if err != nil {
+			return nil, nil, err
+		}
+		mod.RemoveOptions = parsedOptions
 	}
 
-	return cfg, nil
-
+	return cfg, mod, nil
 }
 
-func (c *config) parse() (ast.Node, error) {
-	c.fset = token.NewFileSet()
+func run(cfg *config, mod *modifytags.Modification) error {
+	err := cfg.validate()
+	if err != nil {
+		return err
+	}
+
+	file, err := cfg.parse()
+	if err != nil {
+		return err
+	}
+
+	start, end, err := cfg.findSelection(file)
+	if err != nil {
+		return err
+	}
+	cfg.start = cfg.fset.Position(start).Line
+	cfg.end = cfg.fset.Position(end).Line
+
+	errs := mod.Apply(cfg.fset, file, start, end)
+	if errs != nil {
+		if _, ok := errs.(*modifytags.RewriteErrors); !ok {
+			return errs
+		}
+	}
+	var out string
+	if errs != nil {
+		out, err = cfg.format(file, errs.(*modifytags.RewriteErrors))
+	} else {
+		out, err = cfg.format(file, nil)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if !cfg.quiet {
+		fmt.Println(out)
+	}
+	return nil
+}
+
+func (cfg *config) parse() (*ast.File, error) {
+	cfg.fset = token.NewFileSet()
 	var contents interface{}
-	if c.modified != nil {
-		archive, err := buildutil.ParseOverlayArchive(c.modified)
+	if cfg.modified != nil {
+		archive, err := buildutil.ParseOverlayArchive(cfg.modified)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse -modified archive: %v", err)
 		}
-		fc, ok := archive[c.file]
+		fc, ok := archive[cfg.file]
 		if !ok {
-			return nil, fmt.Errorf("couldn't find %s in archive", c.file)
+			return nil, fmt.Errorf("couldn't find %s in archive", cfg.file)
 		}
 		contents = fc
 	}
 
-	return parser.ParseFile(c.fset, c.file, contents, parser.ParseComments)
+	return parser.ParseFile(cfg.fset, cfg.file, contents, parser.ParseComments)
 }
 
-// findSelection returns the start and end position of the fields that are
-// suspect to change. It depends on the line, struct or offset selection.
-func (c *config) findSelection(node ast.Node) (int, int, error) {
-	if c.line != "" {
-		return c.lineSelection(node)
-	} else if c.offset != 0 {
-		return c.offsetSelection(node)
-	} else if c.structName != "" {
-		return c.structSelection(node)
-	} else if c.all {
-		return c.allSelection(node)
-	} else {
+func parseTransform(input string) modifytags.Transform {
+	input = strings.ToLower(input)
+	switch input {
+	case "snakecase":
+		return modifytags.SnakeCase
+	case "camelcase":
+		return modifytags.CamelCase
+	case "lispcase":
+		return modifytags.LispCase
+	case "pascalcase":
+		return modifytags.PascalCase
+	case "titlecase":
+		return modifytags.TitleCase
+	case "keep":
+		return modifytags.Keep
+	default:
+		return modifytags.NoTransform
+	}
+}
+
+func parseOptions(options string) (map[string][]string, error) {
+	optionsMap := make(map[string][]string)
+	list := strings.Split(options, ",")
+	for _, item := range list {
+		key, option, found := strings.Cut(item, "=")
+		if !found {
+			return nil, fmt.Errorf("invalid option %q; should be key=option", item)
+		}
+		optionsMap[key] = append(optionsMap[key], option)
+	}
+	return optionsMap, nil
+}
+
+// findSelection returns the start and end positions of the fields that are
+// subject to change. It depends on the line, struct or offset selection.
+func (cfg *config) findSelection(file *ast.File) (token.Pos, token.Pos, error) {
+	switch {
+	case cfg.line != "":
+		return cfg.lineSelection(file)
+	case cfg.offset != 0:
+		return cfg.offsetSelection(file)
+	case cfg.structName != "":
+		return cfg.structSelection(file)
+	case cfg.all:
+		return cfg.allSelection(file)
+	default:
 		return 0, 0, errors.New("-line, -offset, -struct or -all is not passed")
 	}
-}
-
-func (c *config) process(fieldName, tagVal string) (string, error) {
-	var tag string
-	if tagVal != "" {
-		var err error
-		tag, err = strconv.Unquote(tagVal)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	tags, err := structtag.Parse(tag)
-	if err != nil {
-		return "", err
-	}
-
-	tags = c.removeTags(tags)
-	tags, err = c.removeTagOptions(tags)
-	if err != nil {
-		return "", err
-	}
-
-	tags = c.clearTags(tags)
-	tags = c.clearOptions(tags)
-
-	tags, err = c.addTags(fieldName, tags)
-	if err != nil {
-		return "", err
-	}
-
-	tags, err = c.addTagOptions(tags)
-	if err != nil {
-		return "", err
-	}
-
-	if c.sort {
-		sort.Sort(tags)
-	}
-
-	res := tags.String()
-	if res != "" {
-		res = quote(tags.String())
-	}
-
-	return res, nil
-}
-
-func (c *config) removeTags(tags *structtag.Tags) *structtag.Tags {
-	if c.remove == nil || len(c.remove) == 0 {
-		return tags
-	}
-
-	tags.Delete(c.remove...)
-	return tags
-}
-
-func (c *config) clearTags(tags *structtag.Tags) *structtag.Tags {
-	if !c.clear {
-		return tags
-	}
-
-	tags.Delete(tags.Keys()...)
-	return tags
-}
-
-func (c *config) clearOptions(tags *structtag.Tags) *structtag.Tags {
-	if !c.clearOption {
-		return tags
-	}
-
-	for _, t := range tags.Tags() {
-		t.Options = nil
-	}
-
-	return tags
-}
-
-func (c *config) removeTagOptions(tags *structtag.Tags) (*structtag.Tags, error) {
-	if c.removeOptions == nil || len(c.removeOptions) == 0 {
-		return tags, nil
-	}
-
-	for _, val := range c.removeOptions {
-		// syntax key=option
-		splitted := strings.Split(val, "=")
-		if len(splitted) < 2 {
-			return nil, errors.New("wrong syntax to remove an option. i.e key=option")
-		}
-
-		key := splitted[0]
-		option := strings.Join(splitted[1:], "=")
-
-		tags.DeleteOptions(key, option)
-	}
-
-	return tags, nil
-}
-
-func (c *config) addTagOptions(tags *structtag.Tags) (*structtag.Tags, error) {
-	if c.addOptions == nil || len(c.addOptions) == 0 {
-		return tags, nil
-	}
-
-	for _, val := range c.addOptions {
-		// syntax key=option
-		splitted := strings.Split(val, "=")
-		if len(splitted) < 2 {
-			return nil, errors.New("wrong syntax to add an option. i.e key=option")
-		}
-
-		key := splitted[0]
-		option := strings.Join(splitted[1:], "=")
-
-		tags.AddOptions(key, option)
-	}
-
-	return tags, nil
-}
-
-func (c *config) addTags(fieldName string, tags *structtag.Tags) (*structtag.Tags, error) {
-	if c.add == nil || len(c.add) == 0 {
-		return tags, nil
-	}
-
-	splitted := camelcase.Split(fieldName)
-	name := ""
-
-	unknown := false
-	switch c.transform {
-	case "snakecase":
-		var lowerSplitted []string
-		for _, s := range splitted {
-			s = strings.Trim(s, "_")
-			if s == "" {
-				continue
-			}
-			lowerSplitted = append(lowerSplitted, strings.ToLower(s))
-		}
-
-		name = strings.Join(lowerSplitted, "_")
-	case "lispcase":
-		var lowerSplitted []string
-		for _, s := range splitted {
-			lowerSplitted = append(lowerSplitted, strings.ToLower(s))
-		}
-
-		name = strings.Join(lowerSplitted, "-")
-	case "camelcase":
-		var titled []string
-		for _, s := range splitted {
-			titled = append(titled, strings.Title(s))
-		}
-
-		titled[0] = strings.ToLower(titled[0])
-
-		name = strings.Join(titled, "")
-	case "pascalcase":
-		var titled []string
-		for _, s := range splitted {
-			titled = append(titled, strings.Title(s))
-		}
-
-		name = strings.Join(titled, "")
-	case "titlecase":
-		var titled []string
-		for _, s := range splitted {
-			titled = append(titled, strings.Title(s))
-		}
-
-		name = strings.Join(titled, " ")
-	case "keep":
-		name = fieldName
-	default:
-		unknown = true
-	}
-
-	if c.valueFormat != "" {
-		prevName := name
-		name = strings.ReplaceAll(c.valueFormat, "{field}", name)
-		if name == c.valueFormat {
-			// support old style for backward compatibility
-			name = strings.ReplaceAll(c.valueFormat, "$field", prevName)
-		}
-	}
-
-	for _, key := range c.add {
-		splitted = strings.SplitN(key, ":", 2)
-		if len(splitted) >= 2 {
-			key = splitted[0]
-			name = strings.Join(splitted[1:], "")
-		} else if unknown {
-			// the user didn't pass any value but want to use an unknown
-			// transform. We don't return above in the default as the user
-			// might pass a value
-			return nil, fmt.Errorf("unknown transform option %q", c.transform)
-		}
-
-		tag, err := tags.Get(key)
-		if err != nil {
-			// tag doesn't exist, create a new one
-			tag = &structtag.Tag{
-				Key:  key,
-				Name: name,
-			}
-		} else if c.override {
-			tag.Name = name
-		}
-
-		if err := tags.Set(tag); err != nil {
-			return nil, err
-		}
-	}
-
-	return tags, nil
 }
 
 // collectStructs collects and maps structType nodes to their positions
@@ -537,20 +364,21 @@ func collectStructs(node ast.Node) map[token.Pos]*structType {
 	return structs
 }
 
-func (c *config) format(file ast.Node, rwErrs error) (string, error) {
-	switch c.output {
+func (cfg *config) format(file ast.Node, rwErr *modifytags.RewriteErrors) (string, error) {
+	switch cfg.output {
 	case "source":
 		var buf bytes.Buffer
-		err := format.Node(&buf, c.fset, file)
+		err := format.Node(&buf, cfg.fset, file)
 		if err != nil {
 			return "", err
 		}
 
-		if c.write {
-			err = ioutil.WriteFile(c.file, buf.Bytes(), 0)
+		if cfg.write {
+			err = ioutil.WriteFile(cfg.file, buf.Bytes(), 0)
 			if err != nil {
 				return "", err
 			}
+
 		}
 
 		return buf.String(), nil
@@ -569,8 +397,8 @@ func (c *config) format(file ast.Node, rwErrs error) (string, error) {
 		// this is the default config from `format.Node()`, but we add
 		// `printer.SourcePos` to get the original source position of the
 		// modified lines
-		cfg := printer.Config{Mode: printer.SourcePos | printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
-		err := cfg.Fprint(&buf, c.fset, file)
+		pcfg := printer.Config{Mode: printer.SourcePos | printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
+		err := pcfg.Fprint(&buf, cfg.fset, file)
 		if err != nil {
 			return "", err
 		}
@@ -581,21 +409,19 @@ func (c *config) format(file ast.Node, rwErrs error) (string, error) {
 		}
 
 		// prevent selection to be larger than the actual number of lines
-		if c.start > len(lines) || c.end > len(lines) {
+		if cfg.start > len(lines) || cfg.end > len(lines) {
 			return "", errors.New("line selection is invalid")
 		}
 
 		out := &output{
-			Start: c.start,
-			End:   c.end,
-			Lines: lines[c.start-1 : c.end],
+			Start: cfg.start,
+			End:   cfg.end,
+			Lines: lines[cfg.start-1 : cfg.end],
 		}
 
-		if rwErrs != nil {
-			if r, ok := rwErrs.(*rewriteErrors); ok {
-				for _, err := range r.errs {
-					out.Errors = append(out.Errors, err.Error())
-				}
+		if rwErr != nil {
+			for _, err := range rwErr.Errs {
+				out.Errors = append(out.Errors, err.Error())
 			}
 		}
 
@@ -606,22 +432,22 @@ func (c *config) format(file ast.Node, rwErrs error) (string, error) {
 
 		return string(o), nil
 	default:
-		return "", fmt.Errorf("unknown output mode: %s", c.output)
+		return "", fmt.Errorf("unknown output mode: %s", cfg.output)
 	}
 }
 
-func (c *config) lineSelection(file ast.Node) (int, int, error) {
+func (cfg *config) lineSelection(file *ast.File) (token.Pos, token.Pos, error) {
 	var err error
-	splitted := strings.Split(c.line, ",")
+	split := strings.Split(cfg.line, ",")
 
-	start, err := strconv.Atoi(splitted[0])
+	start, err := strconv.Atoi(split[0])
 	if err != nil {
 		return 0, 0, err
 	}
 
 	end := start
-	if len(splitted) == 2 {
-		end, err = strconv.Atoi(splitted[1])
+	if len(split) == 2 {
+		end, err = strconv.Atoi(split[1])
 		if err != nil {
 			return 0, 0, err
 		}
@@ -631,15 +457,29 @@ func (c *config) lineSelection(file ast.Node) (int, int, error) {
 		return 0, 0, errors.New("wrong range. start line cannot be larger than end line")
 	}
 
-	return start, end, nil
+	// Convert start and end line numbers to token.Pos.
+	tokFile := cfg.fset.File(file.FileStart)
+	lineCount := tokFile.LineCount()
+	if start < 0 || start > lineCount || end > lineCount {
+		return 0, 0, fmt.Errorf("line selection %q is invalid: %d is not within [0, %d]", cfg.line, start, lineCount)
+	}
+	startPos := tokFile.LineStart(start)
+	var endPos token.Pos
+	if end == tokFile.LineCount() {
+		endPos = tokFile.Pos(tokFile.Size())
+	} else {
+		// Get the position of the end of the line
+		endPos = tokFile.LineStart(end+1) - 1
+	}
+	return startPos, endPos, nil
 }
 
-func (c *config) structSelection(file ast.Node) (int, int, error) {
+func (cfg *config) structSelection(file *ast.File) (token.Pos, token.Pos, error) {
 	structs := collectStructs(file)
 
 	var encStruct *ast.StructType
 	for _, st := range structs {
-		if st.name == c.structName {
+		if st.name == cfg.structName {
 			encStruct = st.node
 		}
 	}
@@ -649,21 +489,17 @@ func (c *config) structSelection(file ast.Node) (int, int, error) {
 	}
 
 	// if field name has been specified as well, only select the given field
-	if c.fieldName != "" {
-		return c.fieldSelection(encStruct)
+	if cfg.fieldName != "" {
+		return cfg.fieldSelection(encStruct)
 	}
-
-	start := c.fset.Position(encStruct.Pos()).Line
-	end := c.fset.Position(encStruct.End()).Line
-
-	return start, end, nil
+	return encStruct.Pos(), encStruct.End(), nil
 }
 
-func (c *config) fieldSelection(st *ast.StructType) (int, int, error) {
+func (cfg *config) fieldSelection(st *ast.StructType) (token.Pos, token.Pos, error) {
 	var encField *ast.Field
 	for _, f := range st.Fields.List {
 		for _, field := range f.Names {
-			if field.Name == c.fieldName {
+			if field.Name == cfg.fieldName {
 				encField = f
 			}
 		}
@@ -671,24 +507,20 @@ func (c *config) fieldSelection(st *ast.StructType) (int, int, error) {
 
 	if encField == nil {
 		return 0, 0, fmt.Errorf("struct %q doesn't have field name %q",
-			c.structName, c.fieldName)
+			cfg.structName, cfg.fieldName)
 	}
-
-	start := c.fset.Position(encField.Pos()).Line
-	end := c.fset.Position(encField.End()).Line
-
-	return start, end, nil
+	return encField.Pos(), encField.End(), nil
 }
 
-func (c *config) offsetSelection(file ast.Node) (int, int, error) {
+func (cfg *config) offsetSelection(file *ast.File) (token.Pos, token.Pos, error) {
 	structs := collectStructs(file)
 
 	var encStruct *ast.StructType
 	for _, st := range structs {
-		structBegin := c.fset.Position(st.node.Pos()).Offset
-		structEnd := c.fset.Position(st.node.End()).Offset
+		structBegin := cfg.fset.Position(st.node.Pos()).Offset
+		structEnd := cfg.fset.Position(st.node.End()).Offset
 
-		if structBegin <= c.offset && c.offset <= structEnd {
+		if structBegin <= cfg.offset && cfg.offset <= structEnd {
 			encStruct = st.node
 			break
 		}
@@ -699,160 +531,40 @@ func (c *config) offsetSelection(file ast.Node) (int, int, error) {
 	}
 
 	// offset selects all fields
-	start := c.fset.Position(encStruct.Pos()).Line
-	end := c.fset.Position(encStruct.End()).Line
-
-	return start, end, nil
+	return encStruct.Pos(), encStruct.End(), nil
 }
 
 // allSelection selects all structs inside a file
-func (c *config) allSelection(file ast.Node) (int, int, error) {
-	start := 1
-	end := c.fset.File(file.Pos()).LineCount()
-
-	return start, end, nil
+func (cfg *config) allSelection(file *ast.File) (token.Pos, token.Pos, error) {
+	tokFile := cfg.fset.File(file.FileStart)
+	return tokFile.LineStart(1), tokFile.Pos(tokFile.Size()), nil
 }
 
-func isPublicName(name string) bool {
-	for _, c := range name {
-		return unicode.IsUpper(c)
-	}
-	return false
-}
-
-// rewrite rewrites the node for structs between the start and end
-// positions
-func (c *config) rewrite(node ast.Node, start, end int) (ast.Node, error) {
-	errs := &rewriteErrors{errs: make([]error, 0)}
-
-	rewriteFunc := func(n ast.Node) bool {
-		x, ok := n.(*ast.StructType)
-		if !ok {
-			return true
-		}
-
-		for _, f := range x.Fields.List {
-			line := c.fset.Position(f.Pos()).Line
-
-			if !(start <= line && line <= end) {
-				continue
-			}
-
-			fieldName := ""
-			if len(f.Names) != 0 {
-				for _, field := range f.Names {
-					if !c.skipUnexportedFields || isPublicName(field.Name) {
-						fieldName = field.Name
-						break
-					}
-				}
-			}
-
-			// anonymous field
-			if f.Names == nil {
-				ident, ok := f.Type.(*ast.Ident)
-				if !ok {
-					continue
-				}
-
-				if !c.skipUnexportedFields {
-					fieldName = ident.Name
-				}
-			}
-
-			// nothing to process, continue with next line
-			if fieldName == "" {
-				continue
-			}
-
-			if f.Tag == nil {
-				f.Tag = &ast.BasicLit{}
-			}
-
-			res, err := c.process(fieldName, f.Tag.Value)
-			if err != nil {
-				errs.Append(fmt.Errorf("%s:%d:%d:%s",
-					c.fset.Position(f.Pos()).Filename,
-					c.fset.Position(f.Pos()).Line,
-					c.fset.Position(f.Pos()).Column,
-					err))
-				continue
-			}
-
-			f.Tag.Value = res
-		}
-
-		return true
-	}
-
-	ast.Inspect(node, rewriteFunc)
-
-	c.start = start
-	c.end = end
-
-	if len(errs.errs) == 0 {
-		return node, nil
-	}
-
-	return node, errs
-}
-
-// validate validates whether the config is valid or not
-func (c *config) validate() error {
-	if c.file == "" {
+// validate determines whether the config is valid or not
+func (cfg *config) validate() error {
+	if cfg.file == "" {
 		return errors.New("no file is passed")
 	}
 
-	if c.line == "" && c.offset == 0 && c.structName == "" && !c.all {
+	if cfg.line == "" && cfg.offset == 0 && cfg.structName == "" && !cfg.all {
 		return errors.New("-line, -offset, -struct or -all is not passed")
 	}
 
-	if c.line != "" && c.offset != 0 ||
-		c.line != "" && c.structName != "" ||
-		c.offset != 0 && c.structName != "" {
+	if cfg.line != "" && cfg.offset != 0 ||
+		cfg.line != "" && cfg.structName != "" ||
+		cfg.offset != 0 && cfg.structName != "" {
 		return errors.New("-line, -offset or -struct cannot be used together. pick one")
 	}
 
-	if (c.add == nil || len(c.add) == 0) &&
-		(c.addOptions == nil || len(c.addOptions) == 0) &&
-		!c.clear &&
-		!c.clearOption &&
-		(c.removeOptions == nil || len(c.removeOptions) == 0) &&
-		(c.remove == nil || len(c.remove) == 0) {
-		return errors.New("one of " +
-			"[-add-tags, -add-options, -remove-tags, -remove-options, -clear-tags, -clear-options]" +
-			" should be defined")
-	}
-
-	if c.fieldName != "" && c.structName == "" {
+	if cfg.fieldName != "" && cfg.structName == "" {
 		return errors.New("-field is requiring -struct")
 	}
 
+	if cfg.fset == nil {
+		return errors.New("no file set")
+	}
+
 	return nil
-}
-
-func quote(tag string) string {
-	return "`" + tag + "`"
-}
-
-type rewriteErrors struct {
-	errs []error
-}
-
-func (r *rewriteErrors) Error() string {
-	var buf bytes.Buffer
-	for _, e := range r.errs {
-		buf.WriteString(fmt.Sprintf("%s\n", e.Error()))
-	}
-	return buf.String()
-}
-
-func (r *rewriteErrors) Append(err error) {
-	if err == nil {
-		return
-	}
-
-	r.errs = append(r.errs, err)
 }
 
 // parseLines parses the given buffer and returns a slice of lines

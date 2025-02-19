@@ -1,0 +1,9 @@
+package main
+
+type foo struct {
+	bar string `hcl:"bar,omitnested"`
+	t   bool   `hcl:"t"`
+	t   bool   `hcl:"t,omitempty"`
+	qux string `hcl:"qux,squash,keys"`
+	yoo string 
+}
