@@ -386,6 +386,12 @@ type Server struct {
 }
 ```
 
+To remove multiple options from the same tag, you can repeat the tag name. For example:
+
+```
+$ gomodifytags -file demo.go -struct Server -remove-options json=first_option,json=other_option
+```
+
 Lastly, to remove all options without explicitly defining the keys and names,
 we can use the `-clear-options` flag. The following example will remove all
 options for the given struct:
