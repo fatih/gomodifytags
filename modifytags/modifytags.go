@@ -21,13 +21,12 @@ import (
 type Transform int
 
 const (
-	NoTransform Transform = iota
-	SnakeCase             // MyField -> my_field
-	CamelCase             // MyField -> myField
-	LispCase              // MyField -> my-field
-	PascalCase            // MyField -> MyField
-	TitleCase             // MyField -> My Field
-	Keep                  // keep the existing field name
+	SnakeCase  = iota // MyField -> my_field
+	CamelCase         // MyField -> myField
+	LispCase          // MyField -> my-field
+	PascalCase        // MyField -> MyField
+	TitleCase         // MyField -> My Field
+	Keep              // keep the existing field name
 )
 
 // A Modification defines how struct tags should be modified for a given input struct.
@@ -240,19 +239,8 @@ func (mod *Modification) addTags(fieldName string, tags *structtag.Tags) (*struc
 	split := camelcase.Split(fieldName)
 	name := ""
 
-	unknown := false
 	switch mod.Transform {
-	case SnakeCase:
-		var lowerSplit []string
-		for _, s := range split {
-			s = strings.Trim(s, "_")
-			if s == "" {
-				continue
-			}
-			lowerSplit = append(lowerSplit, strings.ToLower(s))
-		}
 
-		name = strings.Join(lowerSplit, "_")
 	case LispCase:
 		var lowerSplit []string
 		for _, s := range split {
@@ -285,8 +273,20 @@ func (mod *Modification) addTags(fieldName string, tags *structtag.Tags) (*struc
 		name = strings.Join(titled, " ")
 	case Keep:
 		name = fieldName
+	case SnakeCase:
+		fallthrough
 	default:
-		unknown = true
+		// Use snakecase as the default.
+		var lowerSplit []string
+		for _, s := range split {
+			s = strings.Trim(s, "_")
+			if s == "" {
+				continue
+			}
+			lowerSplit = append(lowerSplit, strings.ToLower(s))
+		}
+
+		name = strings.Join(lowerSplit, "_")
 	}
 
 	if mod.ValueFormat != "" {
@@ -303,11 +303,6 @@ func (mod *Modification) addTags(fieldName string, tags *structtag.Tags) (*struc
 		if len(split) >= 2 {
 			key = split[0]
 			name = strings.Join(split[1:], "")
-		} else if unknown {
-			// the user didn't pass any value but want to use an unknown
-			// transform. We don't return above in the default as the user
-			// might pass a value
-			return nil, fmt.Errorf("unknown transform option %q", mod.Transform)
 		}
 
 		tag, err := tags.Get(key)
