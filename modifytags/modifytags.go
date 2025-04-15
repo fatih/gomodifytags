@@ -101,11 +101,12 @@ func (mod *Modification) rewrite(fset *token.FileSet, node ast.Node, start, end 
 				continue
 			}
 
-			if f.Tag == nil {
-				f.Tag = &ast.BasicLit{}
+			curTag := ""
+			if f.Tag != nil {
+				curTag = f.Tag.Value
 			}
 
-			res, err := mod.processField(fieldName, f.Tag.Value)
+			res, err := mod.processField(fieldName, curTag)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("%s:%d:%d:%s",
 					fset.Position(f.Pos()).Filename,
@@ -115,7 +116,14 @@ func (mod *Modification) rewrite(fset *token.FileSet, node ast.Node, start, end 
 				continue
 			}
 
-			f.Tag.Value = res
+			if res == "" {
+				f.Tag = nil
+			} else {
+				if f.Tag == nil {
+					f.Tag = &ast.BasicLit{}
+				}
+				f.Tag.Value = res
+			}
 		}
 
 		return true

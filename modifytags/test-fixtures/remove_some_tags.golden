@@ -5,5 +5,5 @@ type foo struct {
 	t   bool   `hcl:"t"`
 	t   bool   `hcl:"t,omitempty"`
 	qux string `hcl:"qux,squash,keys"`
-	yoo string 
+	yoo string
 }
