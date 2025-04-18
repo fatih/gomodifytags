@@ -150,7 +150,10 @@ func parseFlags(args []string) (*config, *modifytags.Modification, error) {
 		quiet:      *flagQuiet,
 	}
 
-	transform := parseTransform(*flagTransform)
+	transform, err := parseTransform(*flagTransform)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	mod := &modifytags.Modification{
 		Clear:                *flagClearTags,
@@ -252,23 +255,23 @@ func (cfg *config) parse() (*ast.File, error) {
 	return parser.ParseFile(cfg.fset, cfg.file, contents, parser.ParseComments)
 }
 
-func parseTransform(input string) modifytags.Transform {
+func parseTransform(input string) (modifytags.Transform, error) {
 	input = strings.ToLower(input)
 	switch input {
-	case "snakecase":
-		return modifytags.SnakeCase
 	case "camelcase":
-		return modifytags.CamelCase
+		return modifytags.CamelCase, nil
 	case "lispcase":
-		return modifytags.LispCase
+		return modifytags.LispCase, nil
 	case "pascalcase":
-		return modifytags.PascalCase
+		return modifytags.PascalCase, nil
 	case "titlecase":
-		return modifytags.TitleCase
+		return modifytags.TitleCase, nil
 	case "keep":
-		return modifytags.Keep
+		return modifytags.Keep, nil
+	case "snakecase":
+		return modifytags.SnakeCase, nil
 	default:
-		return modifytags.NoTransform
+		return modifytags.SnakeCase, fmt.Errorf("invalid transform value")
 	}
 }
 
@@ -558,10 +561,6 @@ func (cfg *config) validate() error {
 
 	if cfg.fieldName != "" && cfg.structName == "" {
 		return errors.New("-field is requiring -struct")
-	}
-
-	if cfg.fset == nil {
-		return errors.New("no file set")
 	}
 
 	return nil

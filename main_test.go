@@ -27,9 +27,9 @@ func TestParseFlags(t *testing.T) {
 	// The flag.CommandLine.Parse() call fails if there are flags re-defined
 	// with the same name. If there are duplicates, parseFlags() will return
 	// an error.
-	_, _, err := parseFlags([]string{"test"})
-	if err != nil {
-		t.Fatal(err)
+	_, _, err := parseFlags([]string{"-struct", "Server", "-add-tags", "json,xml", "-transform", "invalid"})
+	if err == nil || !reflect.DeepEqual("invalid transform value", err.Error()) {
+		t.Fatal("expected error: " + err.Error())
 	}
 }
 

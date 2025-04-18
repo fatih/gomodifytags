@@ -133,6 +133,9 @@ type Server struct {
 }
 ```
 
+The default transformation is `snake_case` when using the gomodifytags command
+and when calling Apply() - see section below for more information about Apply().
+
 If you prefer to use `camelCase` instead of `snake_case` for the values, you
 can use the `-transform` flag to define a different transformation rule. The
 following example uses the `camelcase` transformation rule:
@@ -304,7 +307,7 @@ type Server struct {
 }
 ```
 
-You can also remove multiple tags. The example below removs `json` and `xml`:
+You can also remove multiple tags. The example below removes `json` and `xml`:
 
 ```
 $ gomodifytags -file demo.go -struct Server -remove-tags json,xml
@@ -497,6 +500,14 @@ type Server struct {
 	} `json:"credentials" xml:"credentials"`
 }
 ```
+
+## Apply()
+
+In addition to the command line execution, gomodifytags is also available
+as a library `modifytags`, with a single method `Apply`. 
+
+This method applies the struct tag modification of the receiver to all struct
+fields contained within a given node between given start and end positions.
 
 ## Editor integration
 
