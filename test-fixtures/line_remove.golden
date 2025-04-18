@@ -3,6 +3,6 @@ package foo
 type foo struct {
 	bar string `json:"bar"`
 	t   bool   `hcl:"t"`
-	qux string 
-	yoo string 
+	qux string
+	yoo string
 }
