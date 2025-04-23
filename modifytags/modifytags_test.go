@@ -28,8 +28,7 @@ func TestApply(t *testing.T) {
 		{
 			file: "all_structs",
 			m: &Modification{
-				Add:       []string{"json"},
-				Transform: SnakeCase,
+				Add: []string{"json"},
 			},
 			start: token.NoPos, // will be set to start of file
 			end:   token.NoPos, // will be set to end of file
@@ -57,7 +56,6 @@ func TestApply(t *testing.T) {
 				AddOptions: map[string][]string{
 					"json": {"omitempty"},
 				},
-				Transform: SnakeCase,
 			},
 			// TODO: use markers in the test content to delineate start and end, rather than hard-coding here.
 			start: token.Pos(50),  // middle of second struct field
