@@ -170,7 +170,7 @@ func parseFlags(args []string) (*config, *modifytags.Modification, error) {
 	}
 
 	if *flagAddTags != "" {
-		mod.Add = strings.Split(*flagAddTags, ",")
+		mod.Add = splitTags(*flagAddTags)
 	}
 
 	if *flagAddOptions != "" {
@@ -286,6 +286,67 @@ func parseOptions(options string) (map[string][]string, error) {
 		optionsMap[key] = append(optionsMap[key], option)
 	}
 	return optionsMap, nil
+}
+
+// splitTags splits a comma-separated list of tags, taking into account
+// that static tag values may be quoted (e.g. `mapstructure:",squash"`)
+// or may contain a comma immediately following a colon (e.g. `mapstructure:,squash`)
+// or may contain escaped commas (e.g. `\,`).
+func splitTags(s string) []string {
+	if s == "" {
+		return nil
+	}
+
+	var tags []string
+	var cur strings.Builder
+	inQuote := false
+	var prev byte
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '\\':
+			if i+1 < len(s) {
+				if s[i+1] == ',' && !inQuote {
+					cur.WriteByte(',')
+					i++
+					prev = ','
+					continue
+				}
+				if s[i+1] == '"' {
+					cur.WriteByte('\\')
+					cur.WriteByte('"')
+					i++
+					prev = '"'
+					continue
+				}
+			}
+			cur.WriteByte(c)
+			prev = c
+		case c == '"':
+			inQuote = !inQuote
+			cur.WriteByte(c)
+			prev = c
+		case c == ',' && !inQuote:
+			if prev == ':' {
+				cur.WriteByte(c)
+				prev = c
+			} else {
+				tags = append(tags, cur.String())
+				cur.Reset()
+				prev = 0
+			}
+		default:
+			cur.WriteByte(c)
+			prev = c
+		}
+	}
+
+	if cur.Len() > 0 || prev == ',' {
+		tags = append(tags, cur.String())
+	}
+
+	return tags
 }
 
 // findSelection returns the start and end positions of the fields that are

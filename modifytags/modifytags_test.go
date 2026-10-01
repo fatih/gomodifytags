@@ -130,3 +130,109 @@ func TestApply(t *testing.T) {
 		})
 	}
 }
+
+func TestAddStaticTagWithComma(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		mod  *Modification
+		want string
+	}{
+		{
+			name: "quoted static value with comma",
+			src: `package foo
+
+type Friend struct {
+	Person
+}
+`,
+			mod: &Modification{
+				Add: []string{`mapstructure:",squash"`},
+			},
+			want: `package foo
+
+type Friend struct {
+	Person ` + "`" + `mapstructure:",squash"` + "`" + `
+}
+`,
+		},
+		{
+			name: "unquoted static value with comma",
+			src: `package foo
+
+type Friend struct {
+	Person
+}
+`,
+			mod: &Modification{
+				Add: []string{"mapstructure:,squash"},
+			},
+			want: `package foo
+
+type Friend struct {
+	Person ` + "`" + `mapstructure:",squash"` + "`" + `
+}
+`,
+		},
+		{
+			name: "static value with name and option",
+			src: `package foo
+
+type Server struct {
+	Port int
+}
+`,
+			mod: &Modification{
+				Add: []string{`json:"port,omitempty"`},
+			},
+			want: `package foo
+
+type Server struct {
+	Port int ` + "`" + `json:"port,omitempty"` + "`" + `
+}
+`,
+		},
+		{
+			name: "multiple tags with static values and comma",
+			src: `package foo
+
+type Friend struct {
+	Person
+}
+`,
+			mod: &Modification{
+				Add: []string{`mapstructure:",squash"`, "json:person"},
+			},
+			want: `package foo
+
+type Friend struct {
+	Person ` + "`" + `mapstructure:",squash" json:"person"` + "`" + `
+}
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fset := token.NewFileSet()
+			node, err := parser.ParseFile(fset, "foo.go", tt.src, parser.ParseComments)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if err := tt.mod.Apply(fset, node, node.Pos(), node.End()); err != nil {
+				t.Fatal(err)
+			}
+
+			var got bytes.Buffer
+			if err := format.Node(&got, fset, node); err != nil {
+				t.Fatal(err)
+			}
+
+			if got.String() != tt.want {
+				t.Errorf("got:\n%s\nwant:\n%s", got.String(), tt.want)
+			}
+		})
+	}
+}
+

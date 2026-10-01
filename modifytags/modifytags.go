@@ -307,21 +307,38 @@ func (mod *Modification) addTags(fieldName string, tags *structtag.Tags) (*struc
 	}
 
 	for _, key := range mod.Add {
+		tagName := name
+		var tagOptions []string
+		hasStatic := false
+
 		split = strings.SplitN(key, ":", 2)
 		if len(split) >= 2 {
+			hasStatic = true
 			key = split[0]
-			name = strings.Join(split[1:], "")
+			val := split[1]
+			if unquoted, err := strconv.Unquote(val); err == nil {
+				val = unquoted
+			}
+			parts := strings.Split(val, ",")
+			tagName = parts[0]
+			if len(parts) > 1 {
+				tagOptions = parts[1:]
+			}
 		}
 
 		tag, err := tags.Get(key)
 		if err != nil {
 			// tag doesn't exist, create a new one
 			tag = &structtag.Tag{
-				Key:  key,
-				Name: name,
+				Key:     key,
+				Name:    tagName,
+				Options: tagOptions,
 			}
 		} else if mod.Overwrite {
-			tag.Name = name
+			tag.Name = tagName
+			if hasStatic {
+				tag.Options = tagOptions
+			}
 		}
 
 		if err := tags.Set(tag); err != nil {

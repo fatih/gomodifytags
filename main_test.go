@@ -33,6 +33,65 @@ func TestParseFlags(t *testing.T) {
 	}
 }
 
+func TestSplitTags(t *testing.T) {
+	tests := []struct {
+		input string
+		want  []string
+	}{
+		{
+			input: "",
+			want:  nil,
+		},
+		{
+			input: "json",
+			want:  []string{"json"},
+		},
+		{
+			input: "json,xml",
+			want:  []string{"json", "xml"},
+		},
+		{
+			input: "json:foo,xml:bar",
+			want:  []string{"json:foo", "xml:bar"},
+		},
+		{
+			input: `mapstructure:",squash"`,
+			want:  []string{`mapstructure:",squash"`},
+		},
+		{
+			input: "mapstructure:,squash",
+			want:  []string{"mapstructure:,squash"},
+		},
+		{
+			input: `mapstructure:",squash",json:foo`,
+			want:  []string{`mapstructure:",squash"`, "json:foo"},
+		},
+		{
+			input: "mapstructure:,squash,json:foo",
+			want:  []string{"mapstructure:,squash", "json:foo"},
+		},
+		{
+			input: `json:"foo,omitempty",xml:bar`,
+			want:  []string{`json:"foo,omitempty"`, "xml:bar"},
+		},
+		{
+			input: `json:"foo,omitempty",xml:"bar,omitempty"`,
+			want:  []string{`json:"foo,omitempty"`, `xml:"bar,omitempty"`},
+		},
+		{
+			input: `json:foo\,bar,xml:baz`,
+			want:  []string{"json:foo,bar", "xml:baz"},
+		},
+	}
+
+	for _, tt := range tests {
+		got := splitTags(tt.input)
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("splitTags(%q) = %#v, want %#v", tt.input, got, tt.want)
+		}
+	}
+}
+
 func TestRewrite(t *testing.T) {
 	test := []struct {
 		cfg  *config
@@ -72,6 +131,17 @@ func TestRewrite(t *testing.T) {
 			mod: &modifytags.Modification{
 				Add:       []string{"json"},
 				Transform: modifytags.SnakeCase,
+			},
+		},
+		{
+			file: "struct_add_static_comma",
+
+			cfg: &config{
+				output:     "source",
+				structName: "Friend",
+			},
+			mod: &modifytags.Modification{
+				Add: []string{`mapstructure:",squash"`},
 			},
 		},
 		{
