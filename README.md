@@ -198,6 +198,7 @@ We currently support the following transformations:
 * `pascalcase`:  `"BaseDomain"` -> `"BaseDomain"`
 * `titlecase`:  `"BaseDomain"` -> `"Base Domain"`
 * `keep`:  keeps the original field name
+* `lowercase`: `"BaseDomain"` -> `"basedomain"`
 
 You can also pass a static value for each fields. This is useful if you use Go
 packages that validates the struct fields or extract values for certain

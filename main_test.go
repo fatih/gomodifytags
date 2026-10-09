@@ -33,6 +33,36 @@ func TestParseFlags(t *testing.T) {
 	}
 }
 
+func TestParseTransform(t *testing.T) {
+	tests := []struct {
+		input string
+		want  modifytags.Transform
+		err   bool
+	}{
+		{"snakecase", modifytags.SnakeCase, false},
+		{"camelcase", modifytags.CamelCase, false},
+		{"lispcase", modifytags.LispCase, false},
+		{"pascalcase", modifytags.PascalCase, false},
+		{"titlecase", modifytags.TitleCase, false},
+		{"keep", modifytags.Keep, false},
+		{"lowercase", modifytags.LowerCase, false},
+		{"LOWERCASE", modifytags.LowerCase, false},
+		{"invalid", modifytags.SnakeCase, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := parseTransform(tt.input)
+			if (err != nil) != tt.err {
+				t.Fatalf("parseTransform(%q) error = %v, wantErr %v", tt.input, err, tt.err)
+			}
+			if got != tt.want {
+				t.Errorf("parseTransform(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRewrite(t *testing.T) {
 	test := []struct {
 		cfg  *config
@@ -609,6 +639,28 @@ func TestRewrite(t *testing.T) {
 			mod: &modifytags.Modification{
 				Add:       []string{"json"},
 				Transform: modifytags.TitleCase,
+			},
+		},
+		{
+			file: "line_lowercase_add",
+			cfg: &config{
+				output: "source",
+				line:   "4,6",
+			},
+			mod: &modifytags.Modification{
+				Add:       []string{"json"},
+				Transform: modifytags.LowerCase,
+			},
+		},
+		{
+			file: "line_lowercase_add_embedded",
+			cfg: &config{
+				output: "source",
+				line:   "4,6",
+			},
+			mod: &modifytags.Modification{
+				Add:       []string{"json"},
+				Transform: modifytags.LowerCase,
 			},
 		},
 		{

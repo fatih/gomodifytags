@@ -61,6 +61,15 @@ func TestApply(t *testing.T) {
 			start: token.Pos(50),  // middle of second struct field
 			end:   token.Pos(200), // middle of fourth struct field
 		},
+		{
+			file: "lowercase",
+			m: &Modification{
+				Add:       []string{"json"},
+				Transform: LowerCase,
+			},
+			start: token.NoPos,
+			end:   token.NoPos,
+		},
 	}
 
 	for _, ts := range tests {
@@ -130,3 +139,32 @@ func TestApply(t *testing.T) {
 		})
 	}
 }
+
+func TestProcessField_LowerCase(t *testing.T) {
+	tests := []struct {
+		fieldName string
+		want      string
+	}{
+		{fieldName: "bar", want: "`json:\"bar\"`"},
+		{fieldName: "MyExample", want: "`json:\"myexample\"`"},
+		{fieldName: "CreatedAt", want: "`json:\"createdat\"`"},
+		{fieldName: "BaseURL", want: "`json:\"baseurl\"`"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.fieldName, func(t *testing.T) {
+			m := &Modification{
+				Add:       []string{"json"},
+				Transform: LowerCase,
+			}
+			got, err := m.processField(tt.fieldName, "")
+			if err != nil {
+				t.Fatalf("unexpected error: %s", err)
+			}
+			if got != tt.want {
+				t.Errorf("processField(%q) = %q, want %q", tt.fieldName, got, tt.want)
+			}
+		})
+	}
+}
+

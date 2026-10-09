@@ -109,7 +109,7 @@ func parseFlags(args []string) (*config, *modifytags.Modification, error) {
 		flagSkipUnexportedFields = flag.Bool("skip-unexported", false, "Skip unexported fields")
 		flagTransform            = flag.String("transform", "snakecase",
 			"Transform adds a transform rule when adding tags."+
-				" Current options: [snakecase, camelcase, lispcase, pascalcase, titlecase, keep]")
+				" Current options: [snakecase, camelcase, lispcase, pascalcase, titlecase, keep, lowercase]")
 		flagSort = flag.Bool("sort", false,
 			"Sort sorts the tags in increasing order according to the key name")
 
@@ -270,6 +270,8 @@ func parseTransform(input string) (modifytags.Transform, error) {
 		return modifytags.Keep, nil
 	case "snakecase":
 		return modifytags.SnakeCase, nil
+	case "lowercase":
+		return modifytags.LowerCase, nil
 	default:
 		return modifytags.SnakeCase, fmt.Errorf("invalid transform value")
 	}

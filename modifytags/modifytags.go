@@ -27,6 +27,7 @@ const (
 	PascalCase        // MyField -> MyField
 	TitleCase         // MyField -> My Field
 	Keep              // keep the existing field name
+	LowerCase         // MyField -> myfield
 )
 
 // A Modification defines how struct tags should be modified for a given input struct.
@@ -281,6 +282,8 @@ func (mod *Modification) addTags(fieldName string, tags *structtag.Tags) (*struc
 		name = strings.Join(titled, " ")
 	case Keep:
 		name = fieldName
+	case LowerCase:
+		name = strings.ToLower(fieldName)
 	case SnakeCase:
 		fallthrough
 	default:
